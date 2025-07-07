@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Your Dashboard – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <style>
+    :root {
+      --navy: #2a2e85;
+      --orange: #f97316;
+      --violet: #6d28d9;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f9fafb;
+      margin: 0;
+      padding: 0;
+    }
+    .hidden { display: none !important; }
+    .navbar {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 15px 20px; background-color: var(--navy); color: #fff;
+    }
+    .logo { font-weight: bold; font-size: 20px; }
+    .profile-icon { font-size: 20px; cursor: pointer; }
+    .dropdown-menu {
+      display: none; flex-direction: column; position: absolute; top: 60px; right: 20px;
+      background: #fff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 10px; z-index: 1000;
+    }
+    .dropdown-menu.show { display: flex; }
+    .dropdown-menu a {
+      padding: 10px 15px; text-decoration: none;
+      color: #2a2e85; font-weight: 500;
+    }
+    .dropdown-menu a:hover { background-color: #f0f0ff; }
+    .dashboard-section {
+      padding: 30px; max-width: 800px; margin: auto;
+    }
+    .dash-buttons {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 15px; margin-top: 25px;
+    }
+    .btn-primary, .btn-secondary {
+      padding: 12px; border: none; border-radius: 6px;
+      text-align: center; text-decoration: none; cursor: pointer;
+      display: block; font-weight: bold;
+    }
+    .btn-primary { background-color: var(--orange); color: #fff; }
+    .btn-secondary { background-color: var(--violet); color: #fff; }
+    .footer {
+      text-align: center; padding: 20px;
+      background-color: #f3f4f6; color: #555;
+      margin-top: 40px;
+    }
+    .dot {
+      width: 10px; height: 10px;
+      background: red; border-radius: 50%;
+      display: none; margin-left: 6px;
+    }
+  </style>
+</head>
+<body class="homepage-body">
+
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <div class="navbar-icons">
+      <div class="notif-bell" onclick="goToNotifications()">
+        <i class="fa fa-bell"></i>
+        <span id="notif-dot" class="dot"></span>
+      </div>
+      <div class="profile-icon" onclick="toggleMenu()">👤</div>
+    </div>
+  </nav>
+
+  <div class="dropdown-menu" id="dropdown">
+    <a href="post-service.html" id="post-service">Post a Service</a>
+    <a href="index.html">Home</a>
+    <a href="login.html" id="logout">Logout</a>
+  </div>
+
+  <section class="dashboard-section container-padding">
+    <h2>Welcome, <span class="user-name">...</span> 👋</h2>
+    <p id="role-indicator">Checking your role...</p>
+    <button onclick="switchRole()" class="btn-secondary">Switch View</button>
+
+    <div class="dash-buttons hidden" id="buyer-tools">
+      <a href="post-gig.html" class="btn-primary">Post a Job</a>
+      <a href="jobs-posted.html" class="btn-secondary">My Jobs</a>
+      <a href="my-bookings.html" class="btn-secondary">Bookings Made</a>
+      <a href="talents.html" class="btn-secondary">Browse Talents</a>
+      <a href="chats.html" class="btn-secondary">
+        💬 Chats <span id="chat-dot" class="dot"></span>
+      </a>
+    </div>
+
+    <div class="dash-buttons hidden" id="seller-tools">
+      <a href="post-service.html" class="btn-primary">Post a Service</a>
+      <a href="my-services.html" class="btn-secondary">My Services</a>
+      <a href="bookings-received.html" class="btn-secondary">Bookings Received</a>
+      <a href="gig.html" class="btn-secondary">Find Jobs</a>
+      <a href="chats.html" class="btn-secondary">
+        💬 Chats <span id="chat-dot" class="dot"></span>
+      </a>
+      <a href="#" id="profile-link" class="btn-secondary">Loading...</a>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import { getFirestore, collection, query, where, doc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const notifDot = document.getElementById("notif-dot");
+    const chatDot = document.getElementById("chat-dot");
+    const buyerTools = document.getElementById("buyer-tools");
+    const sellerTools = document.getElementById("seller-tools");
+    const roleText = document.getElementById("role-indicator");
+    const usernameSpan = document.querySelector(".user-name");
+    const profileLink = document.getElementById("profile-link");
+
+    let originalRole = null;
+    let currentRoleView = null;
+
+    window.goToNotifications = () => {
+      window.location.href = "notifications.html";
+    };
+
+    window.toggleMenu = () => {
+      document.getElementById('dropdown').classList.toggle('show');
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return;
+
+      // 🔔 Notifications
+      try {
+        const notifQuery = query(collection(db, "notifications"),
+          where("sellerId", "==", user.uid),
+          where("read", "==", false)
+        );
+        const notifSnap = await getDocs(notifQuery);
+        if (!notifSnap.empty) notifDot.style.display = "inline-block";
+      } catch (err) { console.log("Notif error:", err.message); }
+
+      // 💬 Chats
+      try {
+        const chatQuery = query(collection(db, "chatThreads"),
+          where("participants", "array-contains", user.uid)
+        );
+        const chatSnap = await getDocs(chatQuery);
+        let hasUnread = false;
+        chatSnap.forEach(doc => {
+          const data = doc.data();
+          const isBuyer = data.buyerId === user.uid;
+          const unread = isBuyer ? data.unreadForBuyer : data.unreadForSeller;
+          if (unread) hasUnread = true;
+        });
+        if (hasUnread) chatDot.style.display = "inline-block";
+      } catch (err) { console.log("Chat error:", err.message); }
+
+      // 👤 User role
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (!userDoc.exists()) return;
+
+      const userData = userDoc.data();
+      usernameSpan.textContent = userData.name || user.email.split("@")[0];
+      originalRole = userData.role;
+      currentRoleView = originalRole;
+
+      updateDashboardView(currentRoleView);
+
+      // ✅ Seller profile check
+      if (originalRole === "seller") {
+        const profileRef = doc(db, "sellerProfiles", user.uid);
+        const profileSnap = await getDoc(profileRef);
+
+        if (profileSnap.exists()) {
+          profileLink.textContent = "👁 View My Profile";
+          profileLink.href = "view-my-profile.html";
+        } else {
+          profileLink.textContent = "📝 Create Profile";
+          profileLink.href = "create-profile.html";
+        }
+      }
+    });
+
+    function updateDashboardView(role) {
+      if (role === "buyer") {
+        buyerTools.classList.remove("hidden");
+        sellerTools.classList.add("hidden");
+        roleText.innerHTML = `You are currently using HustleNet as a <strong>Buyer</strong>.`;
+      } else {
+        sellerTools.classList.remove("hidden");
+        buyerTools.classList.add("hidden");
+        roleText.innerHTML = `You are currently using HustleNet as a <strong>Seller</strong>.`;
+      }
+    }
+
+    window.switchRole = () => {
+      currentRoleView = currentRoleView === "buyer" ? "seller" : "buyer";
+      updateDashboardView(currentRoleView);
+    };
+
+    document.getElementById("logout").addEventListener("click", async () => {
+      await signOut(auth);
+      window.location.href = "login.html";
+    });
+
+    document.getElementById("post-service").addEventListener("click", () => {
+      window.location.href = "post-service.html";
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,298 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Review Delivery – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .delivery-box {
+      max-width: 700px;
+      margin: auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .delivery-box h2 { margin-bottom: 20px; }
+    textarea, input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-bottom: 15px;
+    }
+    .btn-confirm {
+      background-color: #16a34a;
+      color: white;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .delivery-content { margin-bottom: 20px; }
+  </style>
+</head>
+<body class="homepage-body">
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <a href="javascript:history.back()" class="btn-secondary">⬅ Back</a>
+  </nav>  <section class="delivery-box">
+    <h2>Review Seller Delivery</h2>
+    <div class="delivery-content" id="deliveryContent">Loading...</div><form id="reviewForm">
+  <label for="rating">⭐ Rate the Seller (1 - 5)</label>
+  <input type="number" id="rating" min="1" max="5" required />
+
+  <label for="feedback">💬 Feedback</label>
+  <textarea id="feedback" rows="4" placeholder="Write your thoughts..." required></textarea>
+
+  <button class="btn-confirm" type="submit">✅ Confirm & Release Payment</button>
+</form>
+<p id="msg" style="margin-top:15px; color:red;"></p>
+
+  </section>  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import {
+      getFirestore, doc, getDoc, updateDoc, addDoc, collection
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import {
+      getAuth, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const bookingId = params.get("bookingId");
+    const gigId = params.get("gigId");
+    const sellerId = params.get("sellerId");
+
+    const deliveryContent = document.getElementById("deliveryContent");
+    const reviewForm = document.getElementById("reviewForm");
+    const ratingInput = document.getElementById("rating");
+    const feedbackInput = document.getElementById("feedback");
+    const msg = document.getElementById("msg");
+
+    let buyerName = "";
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return (window.location.href = "login.html");
+      buyerName = user.displayName || "Buyer";
+
+      try {
+        const deliverySnap = await getDoc(doc(db, "deliveries", bookingId));
+        if (!deliverySnap.exists()) {
+          deliveryContent.innerHTML = "❌ No delivery found.";
+          return;
+        }
+
+        const data = deliverySnap.data();
+        deliveryContent.innerHTML = `
+          <p><strong>📩 Message:</strong> ${data.message}</p>
+          <p><strong>🔗 Link:</strong> <a href="${data.deliveryLink}" target="_blank">${data.deliveryLink}</a></p>
+        `;
+      } catch (err) {
+        deliveryContent.innerHTML = "❌ Error loading delivery.";
+      }
+    });
+
+    reviewForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.textContent = "Submitting...";
+
+      try {
+        // Save review
+        await addDoc(collection(db, "reviews"), {
+          sellerId,
+          gigId,
+          bookingId,
+          rating: parseInt(ratingInput.value),
+          comment: feedbackInput.value.trim(),
+          buyerName,
+          createdAt: new Date()
+        });
+
+        // Mark booking as completed
+        await updateDoc(doc(db, "bookings", bookingId), {
+          status: "completed"
+        });
+
+        msg.style.color = "green";
+        msg.textContent = "✅ Delivery confirmed. Payment released.";
+        setTimeout(() => {
+          window.location.href = "dashboard.html";
+        }, 2000);
+      } catch (err) {
+        msg.textContent = "❌ Error: " + err.message;
+      }
+    });
+  </script></body>
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Review Delivery – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .delivery-box {
+      max-width: 700px;
+      margin: auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .delivery-box h2 { margin-bottom: 20px; }
+    textarea, input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-bottom: 15px;
+    }
+    .btn-confirm {
+      background-color: #16a34a;
+      color: white;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .delivery-content { margin-bottom: 20px; }
+  </style>
+</head>
+<body class="homepage-body">
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <a href="javascript:history.back()" class="btn-secondary">⬅ Back</a>
+  </nav>
+
+  <section class="delivery-box">
+    <h2>Review Seller Delivery</h2>
+    <div class="delivery-content" id="deliveryContent">Loading...</div>
+
+    <form id="reviewForm">
+      <label for="rating">⭐ Rate the Seller (1 - 5)</label>
+      <input type="number" id="rating" min="1" max="5" required />
+
+      <label for="feedback">💬 Feedback</label>
+      <textarea id="feedback" rows="4" placeholder="Write your thoughts..." required></textarea>
+
+      <button class="btn-confirm" type="submit">✅ Confirm & Release Payment</button>
+    </form>
+
+    <p id="msg" style="margin-top:15px; color:red;"></p>
+  </section>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import {
+      getFirestore, doc, getDoc, updateDoc, addDoc, collection
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import {
+      getAuth, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const bookingId = params.get("bookingId");
+    const gigId = params.get("gigId");
+    const sellerId = params.get("sellerId");
+
+    const deliveryContent = document.getElementById("deliveryContent");
+    const reviewForm = document.getElementById("reviewForm");
+    const ratingInput = document.getElementById("rating");
+    const feedbackInput = document.getElementById("feedback");
+    const msg = document.getElementById("msg");
+
+    let buyerName = "";
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return (window.location.href = "login.html");
+      buyerName = user.displayName || "Buyer";
+
+      try {
+        const deliverySnap = await getDoc(doc(db, "deliveries", bookingId));
+        if (!deliverySnap.exists()) {
+          deliveryContent.innerHTML = "❌ No delivery found.";
+          return;
+        }
+
+        const data = deliverySnap.data();
+        deliveryContent.innerHTML = `
+          <p><strong>📩 Message:</strong> ${data.message}</p>
+          <p><strong>🔗 Link:</strong> <a href="${data.deliveryLink}" target="_blank">${data.deliveryLink}</a></p>
+        `;
+      } catch (err) {
+        deliveryContent.innerHTML = "❌ Error loading delivery.";
+      }
+    });
+
+    reviewForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.textContent = "Submitting...";
+
+      try {
+        // Save review
+        await addDoc(collection(db, "reviews"), {
+          sellerId,
+          gigId,
+          bookingId,
+          rating: parseInt(ratingInput.value),
+          comment: feedbackInput.value.trim(),
+          buyerName,
+          createdAt: new Date()
+        });
+
+        // Mark booking as completed
+        await updateDoc(doc(db, "bookings", bookingId), {
+          status: "completed"
+        });
+
+        // Notify seller
+        await addDoc(collection(db, "notifications"), {
+          sellerId,
+          title: "✅ Delivery Confirmed",
+          body: `${buyerName} has confirmed delivery and released payment.`,
+          createdAt: new Date(),
+          read: false
+        });
+
+        msg.style.color = "green";
+        msg.textContent = "✅ Delivery confirmed. Payment released.";
+        setTimeout(() => {
+          window.location.href = "dashboard.html";
+        }, 2000);
+      } catch (err) {
+        msg.textContent = "❌ Error: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

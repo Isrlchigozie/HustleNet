@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Talent Profile – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-7aRvq7gUDHXp/jPynFeT6KaxrlzyFg6aTJH+Onh5N+cPKnwlBWeTzyqQ3G3JMQ07S6ZiwUSHDaxL+F5yXq7fkw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body class="homepage-body">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <div class="profile-icon" onclick="toggleMenu()">👤</div>
+  </nav>
+
+  <!-- Dropdown Menu -->
+  <div class="dropdown-menu" id="dropdown">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="post-service.html">Post a Service</a>
+    <a href="login.html">Logout</a>
+  </div>
+
+  <!-- Profile Section -->
+  <section class="talent-profile container-padding">
+    <h2 id="title">Loading...</h2>
+    <img id="image" src="https://via.placeholder.com/200" alt="Service Image" style="width: 200px; border-radius: 8px;" />
+
+    <p><strong>Price:</strong> ₦<span id="price"></span></p>
+    <p><strong>Category:</strong> <span id="category"></span></p>
+    <p><strong>Description:</strong></p>
+    <p id="description"></p>
+    <p><strong>Posted On:</strong> <span id="posted-on">Loading...</span></p>
+
+    <!-- Reviews -->
+    <div style="margin-top: 1.5rem">
+      <h3>⭐ Recent Reviews</h3>
+      <div id="reviews-list">Loading reviews...</div>
+      <a href="#" id="see-all-reviews" class="btn-outline" style="margin-top: 1rem; display: inline-block;">View All Reviews</a>
+    </div>
+
+    <!-- Buttons -->
+    <div style="margin-top: 20px;">
+      <a id="chat-btn" href="#" class="btn-secondary" style="margin-right: 10px;">💬 Chat With Seller</a>
+      <a id="book-btn" href="#" class="btn-primary">📩 Book This Talent</a>
+    </div>
+
+    <!-- Caution -->
+    <p style="margin-top: 20px; color: #a94442; background-color: #f2dede; padding: 10px; border-radius: 6px;">
+      ⚠️ For your safety, all payments should be made through HustleNet. Do not send money directly to sellers.
+    </p>
+
+    <p id="msg" style="color: red;"></p>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>
+
+  <!-- Firebase Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const id = urlParams.get("id");
+
+    const title = document.getElementById("title");
+    const price = document.getElementById("price");
+    const category = document.getElementById("category");
+    const description = document.getElementById("description");
+    const image = document.getElementById("image");
+    const postedOn = document.getElementById("posted-on");
+    const bookBtn = document.getElementById("book-btn");
+    const chatBtn = document.getElementById("chat-btn");
+    const msg = document.getElementById("msg");
+    const reviewsList = document.getElementById("reviews-list");
+    const seeAllLink = document.getElementById("see-all-reviews");
+
+    if (!id) msg.textContent = "❌ Invalid talent ID.";
+
+    async function loadTalent() {
+      try {
+        const docRef = doc(db, "services", id);
+        const docSnap = await getDoc(docRef);
+
+        if (!docSnap.exists()) {
+          msg.textContent = "❌ Talent not found.";
+          return;
+        }
+
+        const data = docSnap.data();
+        title.textContent = data.title || "Untitled";
+        price.textContent = data.price || "N/A";
+        description.textContent = data.description || "No description available.";
+        category.textContent = data.category || "Uncategorized";
+        if (data.imageUrls?.length > 0) image.src = data.imageUrls[0];
+        if (data.createdAt?.toDate) {
+          postedOn.textContent = new Intl.DateTimeFormat("en-NG", {
+            dateStyle: "medium", timeStyle: "short"
+          }).format(data.createdAt.toDate());
+        }
+        bookBtn.href = `booking.html?type=service&id=${docSnap.id}`;
+        chatBtn.href = `chat.html?with=${data.uid}&service=${docSnap.id}`;
+        seeAllLink.href = `reviews.html?sellerId=${data.uid}`;
+
+        loadRecentReviews(data.uid);
+      } catch (error) {
+        msg.textContent = "❌ Error: " + error.message;
+      }
+    }
+
+    async function loadRecentReviews(sellerId) {
+      try {
+        const q = query(
+          collection(db, "reviews"),
+          where("sellerId", "==", sellerId),
+          orderBy("createdAt", "desc"),
+          limit(3)
+        );
+        const snap = await getDocs(q);
+        if (snap.empty) {
+          reviewsList.innerHTML = "<p>No reviews yet.</p>";
+          return;
+        }
+
+        reviewsList.innerHTML = "";
+        snap.forEach(doc => {
+          const data = doc.data();
+          const starIcons = renderStars(data.rating);
+
+          const div = document.createElement("div");
+          div.className = "review-card";
+          div.innerHTML = `
+            <p><strong>${data.buyerName || "Anonymous"}</strong></p>
+            <div style="color: gold; margin-bottom: 4px;">${starIcons}</div>
+            <p>${data.comment || "No comment."}</p>
+            <hr style="margin: 10px 0;">
+          `;
+          reviewsList.appendChild(div);
+        });
+      } catch (err) {
+        reviewsList.innerHTML = "❌ Failed to load reviews.";
+      }
+    }
+
+    function renderStars(rating) {
+      let html = "";
+      const full = Math.floor(rating);
+      const half = rating - full >= 0.5;
+      for (let i = 0; i < full; i++) html += '<i class="fas fa-star"></i> ';
+      if (half) html += '<i class="fas fa-star-half-alt"></i> ';
+      for (let i = full + (half ? 1 : 0); i < 5; i++) html += '<i class="far fa-star"></i> ';
+      return html;
+    }
+
+    loadTalent();
+  </script>
+
+  <script>
+    function toggleMenu() {
+      document.getElementById("dropdown").classList.toggle("show");
+    }
+  </script>
+</body>
+</html>

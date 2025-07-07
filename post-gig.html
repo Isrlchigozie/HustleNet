@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Post a Gig | HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="auth-body">
+
+  <div class="auth-container">
+    <h2>Request a Service</h2>
+    <p class="auth-subtext">Post your gig and let students help you get it done</p>
+
+    <form id="gig-form" class="auth-form">
+      <input type="text" id="title" placeholder="Gig Title (e.g., Design a Flyer)" required />
+      <textarea id="description" placeholder="Describe what you need done..." rows="4" required></textarea>
+      <input type="number" id="budget" placeholder="Your Budget (₦)" required />
+      <input type="text" id="deadline" placeholder="Expected Deadline (e.g., 2 days)" required />
+      <input type="text" id="contact" placeholder="Your Contact (Phone or WhatsApp)" required />
+
+      <button type="submit" class="btn-primary">Post Gig</button>
+      <p id="msg" style="margin-top: 10px;"></p>
+    </form>
+
+    <p class="switch-auth">
+      Want to offer a service instead? <a href="post-service.html">Become a Seller</a>
+    </p>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const form = document.getElementById("gig-form");
+    const msg = document.getElementById("msg");
+
+    let currentUser = null;
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        window.location.href = "login.html";
+      } else {
+        currentUser = user;
+      }
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.textContent = "Posting...";
+
+      const title = document.getElementById("title").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const budget = document.getElementById("budget").value.trim();
+      const deadline = document.getElementById("deadline").value.trim();
+      const contact = document.getElementById("contact").value.trim();
+
+      try {
+        await addDoc(collection(db, "gigs"), {
+          title,
+          description,
+          budget,
+          deadline,
+          contact,
+          buyerId: currentUser.uid,
+          createdAt: serverTimestamp()
+        });
+
+        msg.textContent = "✅ Gig posted successfully!";
+        setTimeout(() => {
+          window.location.href = "jobs-posted.html";
+        }, 1500);
+      } catch (err) {
+        msg.textContent = "❌ Error: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

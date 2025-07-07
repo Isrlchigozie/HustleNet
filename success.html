@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Booking Confirmed – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    :root {
+      --green: #22c55e;
+    }
+  </style>
+</head>
+<body class="auth-body">
+
+  <div class="auth-container">
+    <h2 style="font-size: 2rem; color: var(--green)">✅ Booking Successful!</h2>
+    <p class="auth-subtext">Your order has been confirmed.</p>
+    <p class="auth-subtext">You’ll be contacted by the seller shortly.</p>
+
+    <div style="margin-top: 1.5rem; font-weight: bold; text-align: center;">
+      Reference: <span id="ref">Loading...</span>
+    </div>
+
+    <div class="auth-buttons" style="margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem;">
+      <a href="my-bookings.html" class="btn-primary">📖 View My Bookings</a>
+      <a href="index.html" class="btn-outline">🏠 Back to Home</a>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import {
+      getFirestore, collection, addDoc, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const ref = urlParams.get("ref");
+    document.getElementById("ref").textContent = ref || "N/A";
+
+    // Assume booking details were stored before redirecting to success
+    const bookingData = JSON.parse(localStorage.getItem("lastBooking"));
+    if (bookingData) {
+      const {
+        sellerId,
+        buyerId,
+        buyerName,
+        buyerEmail,
+        buyerPhone,
+        serviceTitle,
+        bookingId
+      } = bookingData;
+
+      // ✅ Create notification
+      await addDoc(collection(db, "notifications"), {
+        type: "payment",
+        sellerId,
+        buyerId,
+        buyerName,
+        buyerEmail,
+        buyerPhone: buyerPhone || "",
+        serviceTitle,
+        bookingId,
+        createdAt: serverTimestamp(),
+        read: false
+      });
+
+      // Optional: clear storage
+      localStorage.removeItem("lastBooking");
+    }
+  </script>
+
+</body>
+</html>

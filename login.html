@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+</head>
+<body class="auth-body">
+
+  <div class="auth-container">
+    <h2>Welcome Back</h2>
+    <p class="auth-subtext">Log in to access your dashboard</p>
+
+    <form id="login-form" class="auth-form">
+      <input type="email" id="email" placeholder="Email address" required />
+      <div class="password-wrapper">
+        <input type="password" id="password" placeholder="Password" required />
+        <i class="fa-solid fa-eye toggle-eye" onclick="toggleVisibility('password', this)"></i>
+      </div>
+      <button type="submit" class="btn-primary">Login</button>
+    </form>
+
+    <p style="text-align: center; margin: 10px 0;">or</p>
+    
+    <button id="google-login" class="btn-secondary" style="width: 100%; padding: 10px; border: none; color: white; border-radius: 5px; cursor: pointer;">
+      <i class="fa-brands fa-google" style="margin-right: 8px;"></i> Continue with Google
+    </button>
+
+    <p id="message" class="auth-message"></p>
+
+    <p class="switch-auth">
+      Don't have an account? <a href="signup.html">Sign up</a>
+    </p>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      GoogleAuthProvider,
+      signInWithPopup,
+      signOut
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      getDoc
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const loginForm = document.getElementById("login-form");
+    const message = document.getElementById("message");
+    const googleBtn = document.getElementById("google-login");
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        message.textContent = "✅ Login successful! Redirecting...";
+        message.style.color = "green";
+        setTimeout(() => {
+          window.location.href = "dashboard.html";
+        }, 1000);
+      } catch (error) {
+        message.textContent = "❌ " + error.message;
+        message.style.color = "red";
+      }
+    });
+
+    // Google login – only allow if user exists
+    googleBtn.addEventListener("click", async () => {
+      const provider = new GoogleAuthProvider();
+      try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+
+        const docRef = doc(db, "users", user.uid);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          // ✅ User exists
+          window.location.href = "dashboard.html";
+        } else {
+          // ❌ Not registered
+          message.textContent = "❌ No account found. Please sign up first.";
+          message.style.color = "red";
+          await signOut(auth); // sign out the accidental user
+        }
+      } catch (error) {
+        message.textContent = "❌ " + error.message;
+        message.style.color = "red";
+      }
+    });
+
+    // Password visibility toggle
+    window.toggleVisibility = function(id, iconElement) {
+      const input = document.getElementById(id);
+      const isHidden = input.type === "password";
+      input.type = isHidden ? "text" : "password";
+      iconElement.classList.toggle("fa-eye");
+      iconElement.classList.toggle("fa-eye-slash");
+    };
+  </script>
+</body>
+</html>

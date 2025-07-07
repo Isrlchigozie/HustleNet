@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chat – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .chat-box {
+      height: 400px;
+      overflow-y: auto;
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+    .chat-input-area {
+      display: flex;
+      gap: 10px;
+    }
+    .chat-input-area input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    .btn-send {
+      padding: 10px 16px;
+      background: #2a2e85;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .my-msg {
+      background-color: #daf5ff;
+      text-align: right;
+      padding: 10px;
+      border-radius: 10px;
+      margin: 5px 0;
+      max-width: 70%;
+      margin-left: auto;
+    }
+    .their-msg {
+      background-color: #f0f0f0;
+      text-align: left;
+      padding: 10px;
+      border-radius: 10px;
+      margin: 5px 0;
+      max-width: 70%;
+    }
+    .warning {
+      color: #a94442;
+      background-color: #f2dede;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body class="homepage-body">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <div class="profile-icon" onclick="toggleMenu()">👤</div>
+  </nav>
+
+  <!-- Dropdown -->
+  <div class="dropdown-menu" id="dropdown">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="chats.html">Chats</a>
+    <a href="login.html">Logout</a>
+  </div>
+
+  <!-- Chat Section -->
+  <section class="chat-container container-padding">
+    <h2 id="chat-title">Chat</h2>
+    <p class="warning">⚠️ Do not share contact info until payment is made. Messages will be auto-masked.</p>
+    <div id="messages" class="chat-box">Loading chat...</div>
+
+    <form id="chat-form" class="chat-input-area">
+      <input type="text" id="message-input" placeholder="Type your message..." required />
+      <button type="submit" class="btn-send">➤</button>
+    </form>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import {
+      getFirestore, doc, getDoc, updateDoc, addDoc, collection,
+      onSnapshot, query, where, orderBy, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const threadId = urlParams.get("threadId");
+
+    const messagesDiv = document.getElementById("messages");
+    const form = document.getElementById("chat-form");
+    const input = document.getElementById("message-input");
+    const chatTitle = document.getElementById("chat-title");
+
+    const maskContacts = (text) => {
+  return text
+    .replace(/\b\d{10,11}\b/g, "[phone hidden]") // Nigerian phone numbers
+    .replace(/\b\S+@\S+\.[a-z]{2,}\b/gi, "[email hidden]") // emails
+    .replace(/\b(whatsapp|instagram|facebook|snapchat|twitter|tiktok|phone|number|call|email|gmail|yahoo|\.com|\.ng|@)\b/gi, "[contact blocked]");
+};
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return (window.location.href = "login.html");
+      if (!threadId) return (messagesDiv.innerHTML = "Invalid chat link.");
+
+      try {
+        const threadRef = doc(db, "chats", threadId);
+        const threadSnap = await getDoc(threadRef);
+        if (!threadSnap.exists()) return (messagesDiv.innerHTML = "Thread not found");
+
+        const thread = threadSnap.data();
+        const isBuyer = user.uid === thread.buyerId;
+        chatTitle.textContent = `Chat with ${isBuyer ? thread.sellerName : thread.buyerName}`;
+
+        // Listen for messages
+        const msgQuery = query(
+          collection(db, `chats/${threadId}/messages`),
+          orderBy("timestamp")
+        );
+
+        onSnapshot(msgQuery, (snap) => {
+          messagesDiv.innerHTML = "";
+          snap.forEach(doc => {
+            const msg = doc.data();
+            const time = msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || "";
+            const className = msg.senderId === user.uid ? "my-msg" : "their-msg";
+            messagesDiv.innerHTML += `<div class="${className}">
+              <p>${msg.text}</p>
+              <span>${time}</span>
+            </div>`;
+          });
+
+          // Auto-scroll
+          setTimeout(() => {
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+          }, 0);
+        });
+
+        // Mark messages as seen
+        const updateSeen = {};
+        if (isBuyer) updateSeen.unreadForBuyer = false;
+        else updateSeen.unreadForSeller = false;
+        await updateDoc(threadRef, updateSeen);
+
+        // Send message
+        form.onsubmit = async (e) => {
+          e.preventDefault();
+          const rawText = input.value.trim();
+          if (!rawText) return;
+          const text = maskContacts(rawText);
+
+          await addDoc(collection(db, `chats/${threadId}/messages`), {
+            text,
+            senderId: user.uid,
+            timestamp: serverTimestamp()
+          });
+
+          await updateDoc(threadRef, {
+            lastMessage: text,
+            lastTimestamp: serverTimestamp(),
+            unreadForBuyer: !isBuyer,
+            unreadForSeller: isBuyer
+          });
+
+          input.value = "";
+        };
+      } catch (err) {
+        messagesDiv.innerHTML = "❌ Error loading chat: " + err.message;
+      }
+    });
+
+    function toggleMenu() {
+      document.getElementById("dropdown").classList.toggle("show");
+    }
+  </script>
+</body>
+</html>

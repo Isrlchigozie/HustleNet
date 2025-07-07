@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Services – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .service-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+      background: #fff;
+    }
+    .service-card img {
+      width: 100px;
+      margin-right: 5px;
+      border-radius: 6px;
+    }
+    .service-card video {
+      width: 200px;
+      margin-top: 10px;
+      border-radius: 6px;
+    }
+    .actions {
+      margin-top: 10px;
+    }
+    .btn-small {
+      padding: 6px 12px;
+      margin-right: 10px;
+      background-color: var(--orange);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn-danger {
+      background-color: red;
+    }
+  </style>
+</head>
+<body class="homepage-body">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+       <div class="navbar-icons">
+    <div class="notif-bell" onclick="goTONotifications()">
+      <span id="notif-dot" class="dot" style="display: none;"></span>
+    </div>
+    <div class="profile-icon" onclick="toggleMenu()">👤</div>
+   </div>
+  </nav>
+
+  <!-- Dropdown -->
+  <div class="dropdown-menu" id="dropdown">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="login.html">Logout</a>
+  </div>
+
+  <section class="dashboard-section container-section">
+    <h2>🛠️ My Posted Services</h2>
+    <div id="service-list"></div>
+    <p id="msg" style="margin-top: 15px;"></p>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>
+
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getFirestore, collection, query, where, getDocs, deleteDoc, doc, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const listDiv = document.getElementById("service-list");
+    const msg = document.getElementById("msg");
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) return;
+
+    try {
+      const q = query(
+        collection(db, "notifications"),
+        where("sellerId", "==", user.uid),
+        where("read", "==", false)
+      );
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        notifDot.style.display = "block";
+      }
+    } catch (err) {
+      console.log("❌ Notification check failed:", err.message);
+    }
+  
+
+  window.goToNotifications = () => {
+    window.location.href = "notifications.html";
+  };
+
+      try {
+        const q = query(
+  collection(db, "services"),
+  where("uid", "==", user.uid),
+  orderBy("createdAt", "desc") 
+);
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+          msg.textContent = "You haven’t posted any services yet.";
+          return;
+        }
+
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+const div = document.createElement("div");
+div.classList.add("service-card");
+
+// Format date
+const createdAt = data.createdAt?.toDate?.();
+const postedDate = createdAt
+  ? new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeStyle: "short" }).format(createdAt)
+  : "Unknown";
+
+let imagesHTML = "";
+if (data.imageUrls && data.imageUrls.length > 0) {
+  imagesHTML = data.imageUrls.map(url => `<img src="${url}" />`).join("");
+}
+
+div.innerHTML = `
+  <p><strong>Title:</strong> ${data.title}</p>
+  <p><strong>Category:</strong> ${data.category || "Uncategorized"}</p>
+  <p><strong>Price:</strong> ₦${data.price}</p>
+  <p><strong>Description:</strong> ${data.description || "–"}</p>
+  <p><strong>Posted:</strong> ${postedDate}</p>
+  ${imagesHTML}
+  ${data.videoUrl ? `<video controls src="${data.videoUrl}"></video>` : ""}
+  <div class="actions">
+    <button class="btn-small" onclick="editService('${docSnap.id}')">Edit</button>
+    <button class="btn-small btn-danger" onclick="deleteService('${docSnap.id}')">Delete</button>
+  </div>
+`;
+
+          listDiv.appendChild(div);
+        });
+      } catch (err) {
+        msg.textContent = "❌ Error: " + err.message;
+      }
+    });
+
+    window.deleteService = async (id) => {
+      if (confirm("Are you sure you want to delete this service?")) {
+        await deleteDoc(doc(db, "services", id));
+        location.reload();
+      }
+    };
+
+    window.editService = (id) => {
+      window.location.href = `edit-service.html?id=${id}`;
+    };
+  </script>
+
+  <script>
+    function toggleMenu() {
+      document.getElementById('dropdown').classList.toggle('show');
+    }
+  </script>
+</body>
+</html>

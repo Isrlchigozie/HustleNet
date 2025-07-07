@@ -1,0 +1,90 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All Reviews – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-7aRvq7gUDHXp/jPynFeT6KaxrlzyFg6aTJH+Onh5N+cPKnwlBWeTzyqQ3G3JMQ07S6ZiwUSHDaxL+F5yXq7fkw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body class="homepage-body">  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <a href="javascript:history.back()" class="btn-secondary">⬅ Back</a>
+  </nav>  <section class="container-padding">
+    <h2>🗣 All Reviews</h2>
+    <div id="all-reviews"></div>
+    <p id="msg" style="color: red; margin-top: 1rem;"></p>
+  </section>  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getFirestore, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const sellerId = urlParams.get("sellerId");
+
+    const list = document.getElementById("all-reviews");
+    const msg = document.getElementById("msg");
+
+    if (!sellerId) {
+      msg.textContent = "❌ Missing seller ID.";
+    } else {
+      loadAllReviews();
+    }
+
+    async function loadAllReviews() {
+      try {
+        const q = query(
+          collection(db, "reviews"),
+          where("sellerId", "==", sellerId),
+          orderBy("createdAt", "desc")
+        );
+
+        const snap = await getDocs(q);
+
+        if (snap.empty) {
+          list.innerHTML = "<p>No reviews yet.</p>";
+          return;
+        }
+
+        snap.forEach(doc => {
+          const data = doc.data();
+          const stars = renderStars(data.rating);
+
+          const div = document.createElement("div");
+          div.className = "review-card";
+          div.innerHTML = `
+            <p><strong>${data.buyerName || "Anonymous"}</strong></p>
+            <div style="color: gold; margin-bottom: 4px;">${stars}</div>
+            <p>${data.comment || "No comment."}</p>
+            <hr style="margin: 12px 0;">
+          `;
+          list.appendChild(div);
+        });
+      } catch (err) {
+        msg.textContent = "❌ Error loading reviews: " + err.message;
+      }
+    }
+
+    function renderStars(rating) {
+      let html = "";
+      const full = Math.floor(rating);
+      const half = rating - full >= 0.5;
+      for (let i = 0; i < full; i++) html += '<i class="fas fa-star"></i> ';
+      if (half) html += '<i class="fas fa-star-half-alt"></i> ';
+      for (let i = full + (half ? 1 : 0); i < 5; i++) html += '<i class="far fa-star"></i> ';
+      return html;
+    }
+  </script></body>
+</html>

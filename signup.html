@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign Up – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Font Awesome for eye icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+</head>
+<body class="auth-body">
+
+  <div class="auth-container">
+    <h2>Create Your Account</h2>
+    <p class="auth-subtext">Join HustleNet and unlock opportunity</p>
+
+    <form id="signup-form" class="auth-form">
+      <input type="text" id="name" placeholder="Full Name" required>
+      <input type="email" id="email" placeholder="Email address" required />
+
+      <div class="password-wrapper">
+        <input type="password" id="password" placeholder="Password" required />
+        <i class="fa-solid fa-eye toggle-eye" onclick="toggleVisibility('password', this)"></i>
+      </div>
+
+      <div class="password-wrapper">
+        <input type="password" id="confirm-password" placeholder="Confirm Password" required />
+        <i class="fa-solid fa-eye toggle-eye" onclick="toggleVisibility('confirm-password', this)"></i>
+      </div>
+
+      <label class="select-label">Select Role:</label>
+      <select id="role" required>
+        <option value="buyer">I want to hire</option>
+        <option value="seller">I want to sell a service</option>
+      </select>
+
+      <button type="submit" class="btn-primary">Sign Up</button>
+    </form>
+
+    <div style="text-align: center; margin: 20px 0;">
+      <p>— or —</p>
+      <button id="google-signup" class="btn-secondary">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+             alt="Google logo" style="width: 20px; vertical-align: middle; margin-right: 8px;">
+        Continue with Google
+      </button>
+    </div>
+
+    <p id="message" class="auth-message"></p>
+
+    <p class="switch-auth">
+      Already have an account? <a href="login.html">Log in</a>
+    </p>
+  </div>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      GoogleAuthProvider,
+      signInWithPopup
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      getDoc
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const form = document.getElementById("signup-form");
+    const message = document.getElementById("message");
+
+    // Email sign-up
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("name").value;
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const confirmPassword = document.getElementById("confirm-password").value;
+      const role = document.getElementById("role").value;
+
+      if (password !== confirmPassword) {
+        message.textContent = "❌ Passwords do not match.";
+        message.style.color = "red";
+        return;
+      }
+
+      try {
+        const userCred = await createUserWithEmailAndPassword(auth, email, password);
+        const uid = userCred.user.uid;
+
+        await setDoc(doc(db, "users", uid), {
+          name,
+          email,
+          role,
+          createdAt: new Date()
+        });
+
+        message.textContent = "✅ Account created! Redirecting...";
+        message.style.color = "green";
+        setTimeout(() => {
+          window.location.href = "dashboard.html";
+        }, 1500);
+      } catch (error) {
+        message.textContent = "❌ " + error.message;
+        message.style.color = "red";
+      }
+    });
+
+    // Google sign-up logic
+    const googleBtn = document.getElementById("google-signup");
+    const provider = new GoogleAuthProvider();
+
+    googleBtn.addEventListener("click", async () => {
+      try {
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+
+        const userDocRef = doc(db, "users", user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (userDocSnap.exists()) {
+          window.location.href = "dashboard.html";
+        } else {
+          sessionStorage.setItem("email", user.email);
+          sessionStorage.setItem("uid", user.uid);
+          sessionStorage.setItem("name", user.displayName || "");
+          window.location.href = "complete-profile.html";
+        }
+      } catch (err) {
+        message.textContent = "❌ Google sign-in failed: " + err.message;
+        message.style.color = "red";
+      }
+    });
+
+    // Password visibility toggle
+    window.toggleVisibility = function(id, iconElement) {
+      const input = document.getElementById(id);
+      const isHidden = input.type === "password";
+      input.type = isHidden ? "text" : "password";
+      iconElement.classList.toggle("fa-eye");
+      iconElement.classList.toggle("fa-eye-slash");
+    };
+  </script>
+</body>
+</html>

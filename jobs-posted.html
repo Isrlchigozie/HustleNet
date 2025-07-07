@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Jobs Posted – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="homepage-body">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <div class="profile-icon" onclick="toggleMenu()">👤</div>
+  </nav>
+
+  <!-- Dropdown -->
+  <div class="dropdown-menu" id="dropdown">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="login.html">Logout</a>
+  </div>
+
+  <section class="my-section container-padding">
+    <h2>📑 My Jobs Posted</h2>
+    <div id="jobs-list"></div>
+    <p id="msg"></p>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>
+
+  <script>
+    function toggleMenu() {
+      document.getElementById('dropdown').classList.toggle('show');
+    }
+  </script>
+
+  <!-- Firebase SDK Logic -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getFirestore, collection, query, where, getDocs, deleteDoc, doc, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const listDiv = document.getElementById("jobs-list");
+    const msg = document.getElementById("msg");
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
+
+      try {
+        const q = query(
+          collection(db, "gigs"),
+          where("buyerId", "==", user.uid),
+          orderBy("createdAt", "desc")
+        );
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+          msg.textContent = "You haven’t posted any job requests yet.";
+          return;
+        }
+
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const div = document.createElement("div");
+          div.className = "job-card";
+
+          const createdAt = data.createdAt?.toDate?.();
+          const dateStr = createdAt
+            ? new Intl.DateTimeFormat("en-NG", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }).format(createdAt)
+            : "Unknown";
+
+          div.innerHTML = `
+            <p><strong>Job:</strong> ${data.title}</p>
+            <p><strong>Budget:</strong> ₦${data.budget}</p>
+            <p><strong>Deadline:</strong> ${data.deadline || "Not specified"}</p>
+            <p><strong>Posted:</strong> ${dateStr}</p>
+            <div class="actions">
+              <button class="btn-small" onclick="editJob('${docSnap.id}')">Edit</button>
+              <button class="btn-small btn-danger" onclick="deleteJob('${docSnap.id}')">Delete</button>
+            </div>
+          `;
+          listDiv.appendChild(div);
+        });
+      } catch (err) {
+        msg.textContent = "❌ Error: " + err.message;
+      }
+    });
+
+    window.deleteJob = async (id) => {
+      if (confirm("Delete this gig post?")) {
+        await deleteDoc(doc(db, "gigs", id));
+        location.reload();
+      }
+    };
+
+    window.editJob = (id) => {
+      window.location.href = `edit-gig.html?id=${id}`;
+    };
+  </script>
+</body>
+</html>

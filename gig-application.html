@@ -1,0 +1,127 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gig Applications | ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .application-card {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+    }
+    .application-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .btn-primary, .btn-secondary {
+      padding: 8px 14px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background-color: #f97316;
+      color: #fff;
+      border: none;
+    }
+    .btn-secondary {
+      background-color: #6d28d9;
+      color: #fff;
+      border: none;
+    }
+  </style>
+</head>
+<body class="homepage-body">  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <a href="javascript:history.back()" class="btn-secondary">⬅ Back</a>
+  </nav>  <section class="container-padding">
+    <h2>📥 Seller Applications</h2>
+    <div id="applications-list"></div>
+    <p id="msg" style="color:red; margin-top:1rem;"></p>
+  </section>  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getFirestore, collection, query, where, getDocs, updateDoc, doc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const gigId = params.get("gigId");
+
+    const list = document.getElementById("applications-list");
+    const msg = document.getElementById("msg");
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return (window.location.href = "login.html");
+
+      if (!gigId) {
+        msg.textContent = "❌ Gig ID is missing.";
+        return;
+      }
+
+      try {
+        const q = query(
+          collection(db, "gigApplications"),
+          where("gigId", "==", gigId)
+        );
+        const snap = await getDocs(q);
+
+        if (snap.empty) {
+          msg.textContent = "No sellers have applied yet.";
+          return;
+        }
+
+        snap.forEach(docSnap => {
+          const data = docSnap.data();
+          const div = document.createElement("div");
+          div.className = "application-card";
+
+          div.innerHTML = `
+            <div class="application-header">
+              <strong>${data.sellerName || "Seller"}</strong>
+              <a href="view-seller-profile.html?uid=${data.sellerId}" class="btn-secondary">View Profile</a>
+            </div>
+            <p><strong>Cover Letter:</strong><br>${data.coverLetter || "No message."}</p>
+            <button class="btn-primary" onclick="pickSeller('${docSnap.id}', '${data.sellerId}')">Pick Seller</button>
+          `;
+
+          list.appendChild(div);
+        });
+
+      } catch (err) {
+        msg.textContent = "❌ Error: " + err.message;
+      }
+    });
+
+    window.pickSeller = async (applicationId, sellerId) => {
+      try {
+        await updateDoc(doc(db, "gigApplications", applicationId), {
+          status: "accepted"
+        });
+        alert("✅ Seller selected. Proceed to payment.");
+        window.location.href = `payment.html?gigId=${gigId}&sellerId=${sellerId}`;
+      } catch (err) {
+        alert("❌ Failed to select seller: " + err.message);
+      }
+    };
+  </script></body>
+</html>

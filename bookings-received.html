@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bookings Received – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .booking-card {
+      background-color: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .booking-card p {
+      margin: 6px 0;
+    }
+    .booking-card strong {
+      color: #1f2937;
+    }
+    .btn-small {
+      background-color: #2563eb;
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+      margin-right: 10px;
+      display: inline-block;
+    }
+    .btn-small:hover {
+      background-color: #1d4ed8;
+    }
+  </style>
+</head>
+<body class="homepage-body">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <div class="navbar-icons">
+      <div class="notif-bell" onclick="goTONotifications()">
+        <span id="notif-dot" class="dot" style="display: none;"></span>
+      </div>
+      <div class="profile-icon" onclick="toggleMenu()">👤</div>
+    </div>
+  </nav>
+
+  <!-- Dropdown -->
+  <div class="dropdown-menu" id="dropdown">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="login.html">Logout</a>
+  </div>
+
+  <section class="my-section container-padding">
+    <h2>📩 Bookings Received</h2>
+    <div id="received-list"></div>
+    <p id="msg" style="margin-top: 20px;"></p>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import {
+      getFirestore, collection, query, where, getDocs, orderBy
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const listDiv = document.getElementById("received-list");
+    const msg = document.getElementById("msg");
+
+    window.toggleMenu = () => {
+      document.getElementById('dropdown').classList.toggle('show');
+    };
+
+    window.goTONotifications = () => {
+      window.location.href = "notifications.html";
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return;
+
+      try {
+        // Show red dot if unread notifications
+        const notifQuery = query(
+          collection(db, "notifications"),
+          where("sellerId", "==", user.uid),
+          where("read", "==", false)
+        );
+        const notifSnap = await getDocs(notifQuery);
+        if (!notifSnap.empty) {
+          document.getElementById("notif-dot").style.display = "block";
+        }
+      } catch (err) {
+        console.log("❌ Notification check failed:", err.message);
+      }
+
+      try {
+        const q = query(
+          collection(db, "bookings"),
+          where("sellerId", "==", user.uid),
+          orderBy("createdAt", "desc")
+        );
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+          msg.textContent = "No one has booked your services yet.";
+          return;
+        }
+
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          const createdAt = data.createdAt?.toDate?.();
+          const dateStr = createdAt ? new Intl.DateTimeFormat("en-NG", {
+            dateStyle: "medium",
+            timeStyle: "short"
+          }).format(createdAt) : "Unknown";
+
+          let contactButton = "<p>No contact info available</p>";
+          if (data.buyerPhone) {
+            const encodedMsg = encodeURIComponent(`Hi ${data.buyerName}, I'm reaching out regarding your booking for '${data.title}'.`);
+            contactButton = `<a class="btn-small" target="_blank" href="https://wa.me/${data.buyerPhone}?text=${encodedMsg}">WhatsApp Client</a>`;
+          } else if (data.buyerEmail) {
+            const mailMsg = encodeURIComponent(`Hi ${data.buyerName},\n\nI saw your booking for '${data.title}'.\n\nThanks.`);
+            contactButton = `<a class="btn-small" href="mailto:${data.buyerEmail}?subject=ABSU HustleNet Booking&body=${mailMsg}">Email Client</a>`;
+          }
+
+          const deliveryButton = data.status === "paid"
+            ? `<a class="btn-small" href="submit-delivery.html?bookingId=${doc.id}">📤 Submit Work</a>`
+            : "";
+
+          const card = document.createElement("div");
+          card.className = "booking-card";
+          card.innerHTML = `
+            <p><strong>Service:</strong> ${data.title}</p>
+            <p><strong>Client:</strong> ${data.buyerName || "N/A"}</p>
+            <p><strong>Phone:</strong> ${data.buyerPhone || "—"}</p>
+            <p><strong>Email:</strong> ${data.buyerEmail || "—"}</p>
+            <p><strong>Status:</strong> ${data.status === "paid" ? "✅ Paid" : "⏳ Pending"}</p>
+            <p><strong>Amount:</strong> ₦${data.price}</p>
+            <p><strong>Booked On:</strong> ${dateStr}</p>
+            ${contactButton}
+            ${deliveryButton}
+          `;
+          listDiv.appendChild(card);
+        });
+
+      } catch (err) {
+        msg.textContent = "❌ Error loading bookings: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

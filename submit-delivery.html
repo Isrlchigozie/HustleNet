@@ -1,0 +1,242 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Submit Delivery – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .container {
+      max-width: 600px;
+      margin: auto;
+      padding: 30px;
+    }
+    textarea, input[type="url"] {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-top: 15px;
+    }
+    .btn-primary {
+      background-color: #f97316;
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 20px;
+    }
+    .msg {
+      margin-top: 15px;
+      font-weight: 500;
+      color: red;
+    }
+  </style>
+</head>
+<body class="homepage-body">
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <a href="javascript:history.back()" class="btn-secondary">⬅ Back</a>
+  </nav>  <section class="container">
+    <h2>📤 Submit Work</h2>
+    <form id="delivery-form">
+      <label for="deliveryMessage">Message / Description</label>
+      <textarea id="deliveryMessage" rows="5" placeholder="Describe your delivery..." required></textarea>
+      <label for="deliveryLink">Delivery Link (Google Drive, etc)</label>
+      <input type="url" id="deliveryLink" placeholder="https://..." required />
+      <button type="submit" class="btn-primary">Submit</button>
+    </form>
+    <p id="msg" class="msg"></p>
+  </section>  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, updateDoc, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = { /* your firebase config */ };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const bookingId = params.get("bookingId");
+    const msg = document.getElementById("msg");
+    const form = document.getElementById("delivery-form");
+
+    let currentUser = null;
+    let bookingData = null;
+    let sellerData = null;
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return (window.location.href = "login.html");
+      currentUser = user;
+
+      const bookingRef = doc(db, "bookings", bookingId);
+      const bookingSnap = await getDoc(bookingRef);
+      if (!bookingSnap.exists()) {
+        msg.textContent = "❌ Booking not found.";
+        return;
+      }
+
+      bookingData = bookingSnap.data();
+      const sellerSnap = await getDoc(doc(db, "users", user.uid));
+      sellerData = sellerSnap.data();
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.textContent = "Submitting...";
+      try {
+        const deliveryMessage = document.getElementById("deliveryMessage").value.trim();
+        const deliveryLink = document.getElementById("deliveryLink").value.trim();
+
+        // Save delivery
+        await addDoc(collection(db, "deliveries"), {
+          bookingId,
+          sellerId: currentUser.uid,
+          buyerId: bookingData.buyerId,
+          serviceTitle: bookingData.title,
+          message: deliveryMessage,
+          link: deliveryLink,
+          createdAt: new Date()
+        });
+
+        // Update booking
+        await updateDoc(doc(db, "bookings", bookingId), {
+          status: "delivered"
+        });
+
+        // Notify buyer
+        await addDoc(collection(db, "notifications"), {
+          type: "delivery",
+          buyerId: bookingData.buyerId,
+          bookingId,
+          sellerName: sellerData.name || "Seller",
+          serviceTitle: bookingData.title,
+          message: `${sellerData.name} has submitted your delivery for the job ‘${bookingData.title}’. Please review and confirm.`,
+          createdAt: new Date(),
+          read: false
+        });
+
+        msg.textContent = "✅ Delivery submitted successfully!";
+        form.reset();
+        setTimeout(() => {
+          window.location.href = "bookings-received.html";
+        }, 1500);
+      } catch (err) {
+        msg.textContent = "❌ Failed: " + err.message;
+      }
+    });
+  </script></body>
+</html>
+
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Submit Work – HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .container { max-width: 600px; margin: auto; padding: 30px; }
+    textarea { width: 100%; padding: 10px; font-size: 16px; border-radius: 6px; border: 1px solid #ccc; margin-top: 15px; }
+    .btn-primary {
+      background-color: #f97316; color: white;
+      border: none; padding: 12px; border-radius: 6px;
+      font-weight: bold; cursor: pointer; margin-top: 20px;
+    }
+    .msg { margin-top: 15px; font-weight: 500; color: red; }
+  </style>
+</head>
+<body class="homepage-body">  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <a href="javascript:history.back()" class="btn-secondary">⬅ Back</a>
+  </nav>  <section class="container">
+    <h2>Submit Completed Work</h2>
+    <form id="delivery-form">
+      <label for="workNote">Delivery Note</label>
+      <textarea id="workNote" rows="5" placeholder="Explain what you delivered..." required></textarea>
+      <label for="review">Leave a Review for the Buyer (optional)</label>
+      <textarea id="review" rows="3" placeholder="e.g., Great client to work with!"></textarea>
+      <button type="submit" class="btn-primary">Submit Work</button>
+    </form>
+    <p id="msg" class="msg"></p>
+  </section>  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import {
+      getFirestore, doc, getDoc, updateDoc, Timestamp, addDoc, collection
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import {
+      getAuth, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const bookingId = params.get("bookingId");
+
+    const form = document.getElementById("delivery-form");
+    const msg = document.getElementById("msg");
+    const workNote = document.getElementById("workNote");
+    const review = document.getElementById("review");
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return (window.location.href = "login.html");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        msg.textContent = "Submitting...";
+        try {
+          const bookingRef = doc(db, "bookings", bookingId);
+          const bookingSnap = await getDoc(bookingRef);
+          if (!bookingSnap.exists()) throw new Error("Booking not found.");
+          const booking = bookingSnap.data();
+
+          // update booking with delivery info
+          await updateDoc(bookingRef, {
+            deliveryNote: workNote.value,
+            sellerReview: review.value,
+            status: "delivered"
+          });
+
+          // get seller name
+          const sellerSnap = await getDoc(doc(db, "users", user.uid));
+          const sellerData = sellerSnap.data();
+
+          // notify buyer
+          await addDoc(collection(db, "notifications"), {
+            recipientId: booking.buyerId,
+            senderName: sellerData.name || "Seller",
+            type: "delivery",
+            serviceTitle: booking.title,
+            message: `${sellerData.name} has submitted your job for review.`,
+            bookingId: bookingId,
+            read: false,
+            createdAt: Timestamp.now()
+          });
+
+          msg.textContent = "✅ Work submitted successfully!";
+          setTimeout(() => window.location.href = "dashboard.html", 1500);
+        } catch (err) {
+          msg.textContent = "❌ Failed to submit: " + err.message;
+        }
+      });
+    });
+  </script></body>
+</html>

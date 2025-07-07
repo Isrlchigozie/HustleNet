@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Payment | ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .container { max-width: 600px; margin: auto; padding: 30px; }
+    .btn-primary {
+      background-color: #f97316; color: white;
+      border: none; padding: 12px; border-radius: 6px;
+      font-weight: bold; cursor: pointer; margin-top: 20px;
+      width: 100%;
+    }
+    .btn-secondary {
+      background-color: #6d28d9;
+      color: white;
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 500;
+      margin-top: 15px;
+      width: 100%;
+    }
+    .msg { margin-top: 15px; font-weight: 500; }
+  </style>
+</head>
+<body class="homepage-body">
+
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <a href="javascript:history.back()" class="btn-secondary">⬅ Back</a>
+  </nav>
+
+  <section class="container">
+    <h2>Confirm & Pay</h2>
+    <p><strong>Job:</strong> <span id="gig-title">Loading...</span></p>
+    <p><strong>Seller:</strong> <span id="seller-name">Loading...</span></p>
+    <p><strong>Budget:</strong> ₦<span id="budget">--</span></p>
+
+    <button class="btn-primary" id="payBtn">Pay Now</button>
+    <button class="btn-secondary" id="confirmBtn" style="display:none;">Confirm Delivery</button>
+
+    <p id="msg" class="msg"></p>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import {
+      getFirestore, doc, getDoc, addDoc, updateDoc, collection, serverTimestamp, setDoc
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import {
+      getAuth, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const gigId = params.get("gigId");
+    const sellerId = params.get("sellerId");
+
+    const titleEl = document.getElementById("gig-title");
+    const sellerEl = document.getElementById("seller-name");
+    const budgetEl = document.getElementById("budget");
+    const msg = document.getElementById("msg");
+    const payBtn = document.getElementById("payBtn");
+    const confirmBtn = document.getElementById("confirmBtn");
+
+    let gigData = null;
+    let currentUser = null;
+
+    if (!gigId || !sellerId) {
+      msg.textContent = "❌ Missing gig or seller ID.";
+      payBtn.style.display = "none";
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return (window.location.href = "login.html");
+      currentUser = user;
+
+      try {
+        const gigSnap = await getDoc(doc(db, "gigs", gigId));
+        const sellerSnap = await getDoc(doc(db, "users", sellerId));
+        if (!gigSnap.exists() || !sellerSnap.exists()) {
+          msg.textContent = "❌ Gig or Seller not found.";
+          return;
+        }
+
+        gigData = gigSnap.data();
+        titleEl.textContent = gigData.title || "Untitled";
+        budgetEl.textContent = gigData.budget || "--";
+        sellerEl.textContent = sellerSnap.data().name || "Seller";
+
+        payBtn.onclick = async () => {
+          try {
+            msg.textContent = "Processing payment...";
+
+            await addDoc(collection(db, "payments"), {
+              gigId,
+              buyerId: currentUser.uid,
+              sellerId,
+              amount: gigData.budget,
+              paidAt: serverTimestamp(),
+              delivered: false
+            });
+
+            // Start a chat thread
+            await setDoc(doc(db, "chatThreads", `${gigId}_${currentUser.uid}_${sellerId}`), {
+              buyerId: currentUser.uid,
+              sellerId,
+              participants: [currentUser.uid, sellerId],
+              lastMessage: "",
+              lastUpdated: serverTimestamp(),
+              unreadForSeller: true,
+              unreadForBuyer: false
+            });
+
+            // Notify seller
+            await addDoc(collection(db, "notifications"), {
+              sellerId,
+              type: "gig-selected",
+              buyerId: currentUser.uid,
+              gigId,
+              message: `🎉 You've been picked for the job: ${gigData.title}`,
+              read: false,
+              createdAt: serverTimestamp()
+            });
+
+            msg.textContent = "✅ Payment successful. You can now chat with the seller.";
+            payBtn.style.display = "none";
+            confirmBtn.style.display = "block";
+          } catch (err) {
+            msg.textContent = "❌ Payment failed: " + err.message;
+          }
+        };
+
+        confirmBtn.onclick = async () => {
+          try {
+            const q = collection(db, "payments");
+            const snap = await getDocs(q);
+            const match = snap.docs.find(doc =>
+              doc.data().gigId === gigId &&
+              doc.data().buyerId === currentUser.uid &&
+              doc.data().sellerId === sellerId
+            );
+            if (!match) return alert("Payment record not found.");
+
+            await updateDoc(doc(db, "payments", match.id), {
+              delivered: true
+            });
+            msg.textContent = "✅ Delivery confirmed. Thanks!";
+            confirmBtn.disabled = true;
+          } catch (err) {
+            msg.textContent = "❌ Failed to confirm delivery: " + err.message;
+          }
+        };
+
+      } catch (err) {
+        msg.textContent = "❌ Error loading page: " + err.message;
+      }
+    });
+  </script>
+
+</body>
+</html>

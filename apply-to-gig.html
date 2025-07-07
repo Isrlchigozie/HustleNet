@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Apply to Gig | ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .container { max-width: 600px; margin: auto; padding: 30px; }
+    textarea { width: 100%; padding: 10px; font-size: 16px; border-radius: 6px; border: 1px solid #ccc; margin-top: 15px; }
+    .btn-primary {
+      background-color: #f97316; color: white;
+      border: none; padding: 12px; border-radius: 6px;
+      font-weight: bold; cursor: pointer; margin-top: 20px;
+    }
+    .gig-title { font-size: 20px; font-weight: bold; margin-bottom: 10px; }
+    .msg { margin-top: 15px; font-weight: 500; color: red; }
+  </style>
+</head>
+<body class="homepage-body">
+
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <a href="javascript:history.back()" class="btn-secondary">⬅ Back</a>
+  </nav>
+
+  <section class="container">
+    <h2>Apply to this Job</h2>
+    <div class="gig-title" id="gig-title">Loading gig...</div>
+
+    <form id="application-form">
+      <label for="coverLetter">Cover Letter / Message</label>
+      <textarea id="coverLetter" rows="5" placeholder="Explain why you're the right fit..." required></textarea>
+      <button type="submit" class="btn-primary">Submit Application</button>
+    </form>
+
+    <p id="msg" class="msg"></p>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, addDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const params = new URLSearchParams(window.location.search);
+    const gigId = params.get("gigId");
+    const titleBox = document.getElementById("gig-title");
+    const msg = document.getElementById("msg");
+    const form = document.getElementById("application-form");
+    const coverLetter = document.getElementById("coverLetter");
+
+    let currentUser = null;
+    let gigData = null;
+
+    if (!gigId) {
+      msg.textContent = "❌ Missing gig ID.";
+      form.style.display = "none";
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return (window.location.href = "login.html");
+      currentUser = user;
+
+      try {
+        const gigDoc = await getDoc(doc(db, "gigs", gigId));
+        if (!gigDoc.exists()) {
+          msg.textContent = "❌ Gig not found.";
+          form.style.display = "none";
+          return;
+        }
+
+        gigData = gigDoc.data();
+        titleBox.textContent = gigData.title || "Untitled Gig";
+
+        // Prevent duplicate application
+        const q = query(collection(db, "gigApplications"),
+          where("gigId", "==", gigId),
+          where("sellerId", "==", user.uid)
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          msg.textContent = "⚠️ You’ve already applied to this job.";
+          form.style.display = "none";
+        }
+
+      } catch (err) {
+        msg.textContent = "❌ Error: " + err.message;
+      }
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.textContent = "Submitting...";
+      try {
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        const userData = userDoc.data();
+
+        await addDoc(collection(db, "gigApplications"), {
+          gigId,
+          sellerId: currentUser.uid,
+          sellerName: userData.name || "Seller",
+          coverLetter: coverLetter.value.trim(),
+          status: "pending",
+          createdAt: new Date()
+        });
+
+        msg.textContent = "✅ Application submitted!";
+        form.reset();
+        setTimeout(() => {
+          window.location.href = `gig-details.html?id=${gigId}`;
+        }, 1500);
+      } catch (err) {
+        msg.textContent = "❌ Failed to apply: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

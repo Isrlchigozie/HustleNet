@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Browse Talents – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body class="homepage-body">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <div class="profile-icon" onclick="toggleMenu()">👤</div>
+  </nav>
+
+  <!-- Dropdown -->
+  <div class="dropdown-menu" id="dropdown">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="post-service.html">Post a Service</a>
+    <a href="login.html">Logout</a>
+  </div>
+
+  <!-- Talents Section -->
+  <section class="talents-section">
+    <h2>🧑‍🎨 Talents You Can Hire</h2>
+
+    <!-- Filter Controls -->
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px;">
+      <div style="flex: 1;">
+        <label for="category-filter"><strong> Filter by Category:</strong></label>
+        <select id="category-filter" style="padding: 8px 14px; border-radius: 6px; min-width: 180px;">
+          <option value="All">-- Show All --</option>
+          <!-- Digital Skills -->
+          <optgroup label="Digital Skills">
+            <option value="Graphics Design">Graphics Design</option>
+            <option value="Web Development">Web Development</option>
+            <option value="Video Editing">Video Editing</option>
+            <option value="App Development">App Development</option>
+            <option value="UI/UX Design">UI/UX Design</option>
+            <option value="Animation">Animation</option>
+            <option value="Digital Marketing">Digital Marketing</option>
+            <option value="Content Writing">Content Writing</option>
+          </optgroup>
+          <!-- Handiwork -->
+          <optgroup label="Handiwork & Personal Services">
+            <option value="Tailoring / Fashion Design">Tailoring / Fashion Design</option>
+            <option value="Hairdressing">Hairdressing</option>
+            <option value="Barbing">Barbing</option>
+            <option value="Makeup Artist">Makeup Artist</option>
+            <option value="Painting & Interior">Painting & Interior</option>
+            <option value="Plumbing">Plumbing</option>
+            <option value="Electrical Services">Electrical Services</option>
+            <option value="Carpentry">Carpentry</option>
+            <option value="Welding & Fabrication">Welding & Fabrication</option>
+          </optgroup>
+          <!-- Academics -->
+          <optgroup label="Academic & Tutoring">
+            <option value="Assignment Help">Assignment Help</option>
+            <option value="Home Tutoring">Home Tutoring</option>
+            <option value="Project Writing">Project Writing</option>
+            <option value="CV & Cover Letter">CV & Cover Letter</option>
+          </optgroup>
+          <!-- Events -->
+          <optgroup label="Events & Lifestyle">
+            <option value="Photography">Photography</option>
+            <option value="Event Planning">Event Planning</option>
+            <option value="Catering / Small Chops">Catering / Small Chops</option>
+            <option value="DJ Services">DJ Services</option>
+            <option value="MC / Hypeman">MC / Hypeman</option>
+            <option value="Decoration">Decoration</option>
+          </optgroup>
+          <!-- Others -->
+          <optgroup label="Other">
+            <option value="Errand Services">Errand Services</option>
+            <option value="Laundry & Cleaning">Laundry & Cleaning</option>
+            <option value="Shoe Making / Repair">Shoe Making / Repair</option>
+            <option value="Other">Other</option>
+          </optgroup>
+        </select>
+      </div>
+
+      <div style="flex: 1;">
+        <label for="search-box"><strong>🔎 Search by Title:</strong></label>
+        <input type="text" id="search-box" placeholder="e.g., Web Developer" style="padding: 8px 14px; border-radius: 6px; min-width: 180px;" />
+      </div>
+
+      <div style="flex-basis: 100%; margin-top: 6px;">
+        <button id="clear-filters" style="
+          font-size: 13px;
+          padding: 5px 10px;
+          background-color: #555;
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          float: right;
+        ">✖ Clear Filters</button>
+      </div>
+    </div>
+
+    <div id="skills-list" class="talent-grid"></div>
+    <p id="msg" style="text-align: center; color: red;"></p>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>
+
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getFirestore, collection, query, where, orderBy, limit, startAfter, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const skillsList = document.getElementById("skills-list");
+    const msg = document.getElementById("msg");
+    const categoryFilter = document.getElementById("category-filter");
+    const searchBox = document.getElementById("search-box");
+    const clearBtn = document.getElementById("clear-filters");
+
+    let lastVisible = null;
+    let isLoading = false;
+    let allResultsExhausted = false;
+
+    function renderStars(rating) {
+      let html = "";
+      const full = Math.floor(rating);
+      const half = rating - full >= 0.5;
+      for (let i = 0; i < full; i++) html += '<i class="fas fa-star"></i> ';
+      if (half) html += '<i class="fas fa-star-half-alt"></i> ';
+      for (let i = full + (half ? 1 : 0); i < 5; i++) html += '<i class="far fa-star"></i> ';
+      return html;
+    }
+
+    async function fetchTalents(reset = false) {
+      if (isLoading || allResultsExhausted) return;
+      isLoading = true;
+      msg.textContent = "";
+
+      if (reset) {
+        skillsList.innerHTML = "";
+        lastVisible = null;
+        allResultsExhausted = false;
+      }
+
+      const category = categoryFilter.value;
+      const search = searchBox.value.trim().toLowerCase();
+
+      let q = query(collection(db, "services"), orderBy("createdAt", "desc"), limit(10));
+      if (lastVisible) q = query(q, startAfter(lastVisible));
+
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        allResultsExhausted = true;
+        if (reset) msg.textContent = "No talents found.";
+        return;
+      }
+
+      let docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      if (category !== "All") {
+        docs = docs.filter(d => d.category === category);
+      }
+      if (search) {
+        docs = docs.filter(d => d.title?.toLowerCase().includes(search));
+      }
+
+      if (docs.length === 0 && reset) {
+        msg.textContent = "No matching talents.";
+        return;
+      }
+
+      for (const data of docs) {
+        const div = document.createElement("div");
+        div.className = "talent-card";
+
+        const createdAt = data.createdAt?.toDate?.();
+        const postedDate = createdAt
+          ? new Intl.DateTimeFormat("en-NG", { dateStyle: "medium" }).format(createdAt)
+          : "Unknown";
+
+        // Fetch average rating
+        const reviewsRef = collection(db, "reviews");
+        const reviewsQuery = query(reviewsRef, where("sellerId", "==", data.uid));
+        const reviewsSnap = await getDocs(reviewsQuery);
+
+        let averageRating = null;
+        if (!reviewsSnap.empty) {
+          let total = 0;
+          reviewsSnap.forEach(r => total += r.data().rating || 0);
+          averageRating = (total / reviewsSnap.size).toFixed(1);
+        }
+
+        div.innerHTML = `
+          <img src="${data.imageUrls?.[0] || 'https://via.placeholder.com/100'}" alt="Service Image" style="width: 100%; border-radius: 8px;" />
+          <h3>${data.title}</h3>
+          <p><strong>Category:</strong> ${data.category || "Uncategorized"}</p>
+          <p>₦${data.price}</p>
+          ${averageRating ? `<div style="color: gold; font-size: 14px;">${renderStars(averageRating)} <span style="color: #555;">(${averageRating})</span></div>` : ""}
+          <p style="font-size: 12px; color: gray;">🕓 Posted: ${postedDate}</p>
+          <a href="talent-profile.html?id=${data.id}" class="btn-secondary">View Profile</a>
+        `;
+
+        skillsList.appendChild(div);
+      }
+
+      lastVisible = snapshot.docs[snapshot.docs.length - 1];
+      isLoading = false;
+    }
+
+    categoryFilter.addEventListener("change", () => fetchTalents(true));
+    searchBox.addEventListener("input", () => fetchTalents(true));
+    clearBtn.addEventListener("click", () => {
+      categoryFilter.value = "All";
+      searchBox.value = "";
+      fetchTalents(true);
+    });
+
+    window.addEventListener("scroll", () => {
+      if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 300) {
+        fetchTalents();
+      }
+    });
+
+    fetchTalents(true);
+  </script>
+
+  <script>
+    function toggleMenu() {
+      document.getElementById("dropdown").classList.toggle("show");
+    }
+  </script>
+</body>
+</html>

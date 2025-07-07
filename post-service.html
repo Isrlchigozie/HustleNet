@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Post a Service – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    #progress-container {
+      margin-top: 10px;
+      display: none;
+    }
+    #progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    #progress-fill {
+      height: 100%;
+      width: 0;
+      background-color: var(--orange);
+      transition: width 0.3s;
+    }
+    #cancel-upload {
+      display: none;
+      margin-top: 10px;
+      background-color: red;
+      color: white;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="auth-body">
+  <div class="auth-container">
+    <h2>Post Your Service</h2>
+    <p class="auth-subtext">Let people discover your skills</p>
+
+    <form id="service-form" class="auth-form">
+      <input type="text" id="title" placeholder="Service Title" required />
+      <textarea id="description" placeholder="Describe what you offer..." rows="4" required></textarea>
+
+      <label class="select-label">Select Category:</label>
+      <select id="category" required>
+        <option value="">-- Select a Category --</option>
+        <optgroup label="Digital Skills">
+          <option value="Graphics Design">Graphics Design</option>
+          <option value="Web Development">Web Development</option>
+          <option value="Video Editing">Video Editing</option>
+          <option value="App Development">App Development</option>
+          <option value="UI/UX Design">UI/UX Design</option>
+          <option value="Animation">Animation</option>
+          <option value="Digital Marketing">Digital Marketing</option>
+          <option value="Content Writing">Content Writing</option>
+        </optgroup>
+        <optgroup label="Handiwork & Personal Services">
+          <option value="Tailoring / Fashion Design">Tailoring / Fashion Design</option>
+          <option value="Baking">Baking</option>
+          <option value="Hairdressing">Hairdressing</option>
+          <option value="Barbing">Barbing</option>
+          <option value="Makeup Artist">Makeup Artist</option>
+          <option value="Painting & Interior">Painting & Interior</option>
+          <option value="Plumbing">Plumbing</option>
+          <option value="Electrical Services">Electrical Services</option>
+          <option value="Carpentry">Carpentry</option>
+          <option value="Welding & Fabrication">Welding & Fabrication</option>
+        </optgroup>
+        <optgroup label="Academic & Tutoring">
+          <option value="Assignment Help">Assignment Help</option>
+          <option value="Home Tutoring">Home Tutoring</option>
+          <option value="Project Writing">Project Writing</option>
+          <option value="CV & Cover Letter">CV & Cover Letter</option>
+        </optgroup>
+        <optgroup label="Events & Lifestyle">
+          <option value="Photography">Photography</option>
+          <option value="Event Planning">Event Planning</option>
+          <option value="Catering / Small Chops">Catering / Small Chops</option>
+          <option value="DJ Services">DJ Services</option>
+          <option value="MC / Hypeman">MC / Hypeman</option>
+          <option value="Decoration">Decoration</option>
+        </optgroup>
+        <optgroup label="Other">
+          <option value="Errand Services">Errand Services</option>
+          <option value="Laundry & Cleaning">Laundry & Cleaning</option>
+          <option value="Shoe Making / Repair">Shoe Making / Repair</option>
+          <option value="Other">Other</option>
+        </optgroup>
+      </select>
+
+      <input type="number" id="price" placeholder="Starting Price (₦)" required />
+      <input type="text" id="contact" placeholder="Phone or WhatsApp" required />
+
+      <label class="select-label">Upload up to 3 images:</label>
+      <input type="file" id="image1" accept="image/*"><br />
+      <input type="file" id="image2" accept="image/*"><br />
+      <input type="file" id="image3" accept="image/*"><br />
+
+      <label class="select-label">Upload a video (optional):</label>
+      <input type="file" id="video" accept="video/*"><br /><br />
+
+      <div id="progress-container">
+        <div id="progress-bar"><div id="progress-fill"></div></div>
+        <button type="button" id="cancel-upload">Cancel Upload</button>
+      </div>
+
+      <button type="submit" class="btn-primary">Post Service</button>
+    </form>
+
+    <p id="msg" class="auth-message"></p>
+    <p class="switch-auth">Done? <a href="dashboard.html">Back to Dashboard</a></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-storage.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    const form = document.getElementById("service-form");
+    const msg = document.getElementById("msg");
+    const progressContainer = document.getElementById("progress-container");
+    const progressFill = document.getElementById("progress-fill");
+    const cancelBtn = document.getElementById("cancel-upload");
+
+    let currentUser = null;
+    let currentUploadTask = null;
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        window.location.href = "login.html";
+      } else {
+        currentUser = user;
+      }
+    });
+
+    // Fast image upload
+    async function uploadImageFast(file, path) {
+      const storageRef = ref(storage, path);
+      const snapshot = await uploadBytes(storageRef, file);
+      return await getDownloadURL(snapshot.ref);
+    }
+
+    // Resumable video upload with progress
+    async function uploadVideoWithProgress(file, path) {
+      return new Promise((resolve, reject) => {
+        const storageRef = ref(storage, path);
+        const uploadTask = uploadBytesResumable(storageRef, file);
+        currentUploadTask = uploadTask;
+
+        progressContainer.style.display = "block";
+        cancelBtn.style.display = "inline-block";
+
+        uploadTask.on(
+          "state_changed",
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            progressFill.style.width = `${progress}%`;
+          },
+          (error) => reject(error),
+          async () => {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            progressFill.style.width = "0%";
+            progressContainer.style.display = "none";
+            cancelBtn.style.display = "none";
+            resolve(url);
+          }
+        );
+      });
+    }
+
+    cancelBtn.addEventListener("click", () => {
+      if (currentUploadTask) {
+        currentUploadTask.cancel();
+        msg.textContent = "❌ Upload cancelled.";
+        progressFill.style.width = "0%";
+        cancelBtn.style.display = "none";
+      }
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      if (!currentUser) {
+        msg.textContent = "❌ Please wait, user not loaded yet.";
+        return;
+      }
+
+      msg.textContent = "⏳ Uploading...";
+
+      const title = document.getElementById("title").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const category = document.getElementById("category").value;
+      const price = document.getElementById("price").value.trim();
+      const contact = document.getElementById("contact").value.trim();
+
+      const image1 = document.getElementById("image1").files[0];
+      const image2 = document.getElementById("image2").files[0];
+      const image3 = document.getElementById("image3").files[0];
+      const video = document.getElementById("video").files[0];
+
+      try {
+        let imageUrls = [];
+        for (let [i, file] of [image1, image2, image3].entries()) {
+          if (file) {
+            const url = await uploadImageFast(file, `services/${currentUser.uid}/image${i+1}-${Date.now()}`);
+            imageUrls.push(url);
+          }
+        }
+
+        let videoUrl = "";
+        if (video) {
+          videoUrl = await uploadVideoWithProgress(video, `services/${currentUser.uid}/video-${Date.now()}`);
+        }
+
+        await addDoc(collection(db, "services"), {
+          uid: currentUser.uid,
+          title,
+          description,
+          category,
+          price,
+          contact,
+          imageUrls,
+          videoUrl,
+          createdAt: serverTimestamp()
+        });
+
+        msg.textContent = "✅ Service posted successfully!";
+        setTimeout(() => {
+          window.location.href = "my-services.html";
+        }, 1500);
+      } catch (error) {
+        msg.textContent = "❌ Failed to post service: " + error.message;
+        progressFill.style.width = "0%";
+        cancelBtn.style.display = "none";
+        progressContainer.style.display = "none";
+      }
+    });
+  </script>
+</body>
+</html>
+
+
+
+

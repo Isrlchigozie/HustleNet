@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="homepage-body">
+
+  <!-- Nav -->
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <div class="profile-icon" onclick="toggleMenu()">👤</div>
+  </nav>
+
+  <!-- Dropdown Menu -->
+  <div class="dropdown-menu" id="dropdown">
+    <div id="auth-buttons">
+      <a href="login.html">Login</a>
+      <a href="signup.html">Sign Up</a>
+    </div>
+    <div id="user-actions" class="hidden">
+      <a href="login.html">Login</a>
+      <a href="signup.html">Sign Up</a>
+    </div>
+  </div>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <h1>Discover ABSU's Hidden Talents</h1>
+    <p>Hire students. Offer services. Book jobs. Earn income.</p>
+    <div class="action-buttons">
+      <a href="talents.html" class="btn-primary">Find Talents</a>
+      <a href="login.html" class="btn-secondary">Post a Service</a>
+    </div>
+  </section>
+
+  <!-- Top Talents (Services from Firebase) -->
+  <section class="popular-skills">
+    <h2>Top Talents</h2>
+    <div class="skills-list" id="services"></div>
+  </section>
+
+  <!-- Latest Gigs (from Firebase) -->
+  <section class="gig-preview">
+    <h2>New Job Requests</h2>
+    <div class="gig-list" id="gigs"></div>
+    <a href="gig.html" class="btn-secondary">Find Jobs</a>
+  </section>
+
+  <section class="why-section">
+    <h2>Why Use HustleNet?</h2>
+    <div class="why-grid">
+      <div>🔐 Safe Payments</div>
+      <div>🌍 Campus Visibility</div>
+      <div>📲 Easy Booking</div>
+    </div>
+  </section>
+
+  <section class="cta">
+    <h2>Ready to earn from your skills?</h2>
+    <a href="login.html" class="btn-primary">Post a Service Now</a>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>
+
+  <p id="msg"></p>
+
+  <!-- Firebase SDK & Logic -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getFirestore, collection, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const servicesDiv = document.getElementById("services");
+    const gigsDiv = document.getElementById("gigs");
+    const msg = document.getElementById("msg");
+    const authBtns = document.getElementById("auth-buttons");
+    const userActions = document.getElementById("user-actions");
+    const logoutBtn = document.getElementById("logout");
+
+    async function loadHomepageData() {
+      try {
+        // Services
+        const serviceQuery = query(collection(db, "services"), orderBy("timestamp", "desc"), limit(4));
+        const serviceSnap = await getDocs(serviceQuery);
+        serviceSnap.forEach(doc => {
+          const data = doc.data();
+          servicesDiv.innerHTML += `
+            <div class="skill-card">
+              ${data.emoji || '💼'} ${data.title} — ₦${data.price}
+              <br><a href="talent-profile.html?id=${doc.id}">View</a>
+            </div>`;
+        });
+
+        // Gigs
+        const gigsQuery = query(collection(db, "gigs"), orderBy("timestamp", "desc"), limit(4));
+        const gigsSnap = await getDocs(gigsQuery);
+        gigsSnap.forEach(doc => {
+          const data = doc.data();
+          gigsDiv.innerHTML += `
+            <div class="skill-card">
+              ${data.emoji || '📢'} ${data.title} — ₦${data.budget}
+              <br><a href="gig-details.html?id=${doc.id}">View</a>
+            </div>`;
+        });
+      } catch (err) {
+        msg.textContent = "❌ " + err.message;
+      }
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        authBtns.classList.add("hidden");
+        userActions.classList.remove("hidden");
+      }
+    });
+
+    logoutBtn.onclick = () => {
+      signOut(auth).then(() => window.location.reload());
+    };
+
+    loadHomepageData();
+  </script>
+
+  <script>
+    function toggleMenu() {
+      const menu = document.getElementById('dropdown');
+      menu.classList.toggle('show');
+    }
+  </script>
+
+</body>
+</html>

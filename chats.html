@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Chats | ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .chat-card {
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      background: #f9f9f9;
+      cursor: pointer;
+      transition: background-color 0.2s ease-in-out;
+    }
+    .chat-card:hover {
+      background-color: #f0f0f0;
+    }
+    .chat-header {
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .chat-preview {
+      font-size: 14px;
+      color: #555;
+      margin-top: 5px;
+    }
+    .chat-time {
+      font-size: 12px;
+      color: gray;
+    }
+    .unread-dot {
+      width: 8px;
+      height: 8px;
+      background: red;
+      border-radius: 50%;
+      display: inline-block;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body class="homepage-body">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <div class="profile-icon" onclick="toggleMenu()">👤</div>
+  </nav>
+
+  <!-- Dropdown Menu -->
+  <div class="dropdown-menu" id="dropdown">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="login.html">Logout</a>
+  </div>
+
+  <!-- Chat Threads Section -->
+  <section class="container-padding">
+    <h2>💬 My Chats</h2>
+    <div id="chat-list"></div>
+    <p id="msg" style="margin-top: 20px; color: red;"></p>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>
+
+  <!-- Firebase Logic -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import { getFirestore, collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const chatList = document.getElementById("chat-list");
+    const msg = document.getElementById("msg");
+
+    window.toggleMenu = () => {
+      document.getElementById("dropdown").classList.toggle("show");
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
+
+      try {
+        const q = query(
+          collection(db, "chatThreads"),
+          where("participants", "array-contains", user.uid),
+          orderBy("lastUpdated", "desc")
+        );
+
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+          msg.textContent = "You have no chats yet.";
+          return;
+        }
+
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          const isBuyer = data.buyerId === user.uid;
+          const otherUserName = isBuyer ? data.sellerName : data.buyerName;
+          const unread = isBuyer ? data.unreadForBuyer : data.unreadForSeller;
+          const serviceTitle = data.serviceTitle || "Service";
+          const preview = data.lastMessage?.slice(0, 40) || "No messages yet.";
+          const time = data.lastUpdated?.toDate?.()
+            ? new Intl.DateTimeFormat("en-NG", { dateStyle: "short", timeStyle: "short" }).format(data.lastUpdated.toDate())
+            : "—";
+
+          const card = document.createElement("div");
+          card.className = "chat-card";
+          card.onclick = () => {
+            window.location.href = `chat.html?threadId=${docSnap.id}`;
+          };
+
+          card.innerHTML = `
+            <div class="chat-header">
+              ${otherUserName || "Partner"} — ${serviceTitle}
+              ${unread ? '<span class="unread-dot" title="Unread message"></span>' : ''}
+            </div>
+            <div class="chat-preview">${preview}</div>
+            <div class="chat-time">${time}</div>
+          `;
+
+          chatList.appendChild(card);
+        });
+      } catch (err) {
+        msg.textContent = "❌ Failed to load chats: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

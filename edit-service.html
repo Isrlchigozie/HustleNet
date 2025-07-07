@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Edit Service | HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="auth-body">
+
+  <div class="auth-container">
+    <h2>Edit Your Service</h2>
+    <p class="auth-subtext">Update your service details</p>
+
+    <form id="edit-form" class="auth-form">
+      <input type="text" id="title" placeholder="Service Title" required />
+
+      <!-- New: Category dropdown -->
+      <label for="category">Select Category:</label>
+      <select id="category" required>
+        <option value="">-- Choose a Category --</option>
+
+        <optgroup label="Digital Skills">
+          <option value="Graphics Design">Graphics Design</option>
+          <option value="Web Development">Web Development</option>
+          <option value="Video Editing">Video Editing</option>
+          <option value="App Development">App Development</option>
+          <option value="UI/UX Design">UI/UX Design</option>
+          <option value="Animation">Animation</option>
+          <option value="Digital Marketing">Digital Marketing</option>
+          <option value="Content Writing">Content Writing</option>
+        </optgroup>
+
+        <optgroup label="Handiwork & Personal Services">
+          <option value="Tailoring / Fashion Design">Tailoring / Fashion Design</option>
+          <option value="Hairdressing">Hairdressing</option>
+          <option value="Barbing">Barbing</option>
+          <option value="Makeup Artist">Makeup Artist</option>
+          <option value="Painting & Interior">Painting & Interior</option>
+          <option value="Plumbing">Plumbing</option>
+          <option value="Electrical Services">Electrical Services</option>
+          <option value="Carpentry">Carpentry</option>
+          <option value="Welding & Fabrication">Welding & Fabrication</option>
+        </optgroup>
+
+        <optgroup label="Academic & Tutoring">
+          <option value="Assignment Help">Assignment Help</option>
+          <option value="Home Tutoring">Home Tutoring</option>
+          <option value="Project Writing">Project Writing</option>
+          <option value="CV & Cover Letter">CV & Cover Letter</option>
+        </optgroup>
+
+        <optgroup label="Events & Lifestyle">
+          <option value="Photography">Photography</option>
+          <option value="Event Planning">Event Planning</option>
+          <option value="Catering / Small Chops">Catering / Small Chops</option>
+          <option value="DJ Services">DJ Services</option>
+          <option value="MC / Hypeman">MC / Hypeman</option>
+          <option value="Decoration">Decoration</option>
+        </optgroup>
+
+        <optgroup label="Other">
+          <option value="Errand Services">Errand Services</option>
+          <option value="Laundry & Cleaning">Laundry & Cleaning</option>
+          <option value="Shoe Making / Repair">Shoe Making / Repair</option>
+          <option value="Other">Other</option>
+        </optgroup>
+      </select>
+
+      <input type="number" id="price" placeholder="Price (₦)" required />
+      <textarea id="description" placeholder="Describe your service..." rows="4" required></textarea>
+
+      <label>Replace or Add up to 3 new images:</label>
+      <input type="file" id="image1" accept="image/*" />
+      <input type="file" id="image2" accept="image/*" />
+      <input type="file" id="image3" accept="image/*" />
+
+      <label>Replace or add new video:</label>
+      <input type="file" id="video" accept="video/*" />
+
+      <button type="submit" class="btn-primary">Update Service</button>
+    </form>
+
+    <p id="msg" style="margin-top: 15px;"></p>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-storage.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const storage = getStorage(app);
+
+    const form = document.getElementById("edit-form");
+    const msg = document.getElementById("msg");
+
+    let currentUser = null;
+    let serviceId = new URLSearchParams(window.location.search).get("id");
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
+
+      currentUser = user;
+
+      if (!serviceId) {
+        msg.textContent = "Invalid request. No service ID found.";
+        return;
+      }
+
+      try {
+        const docRef = doc(db, "services", serviceId);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) {
+          msg.textContent = "Service not found.";
+          return;
+        }
+
+        const data = snap.data();
+        if (data.uid !== user.uid) {
+          msg.textContent = "Unauthorized access.";
+          return;
+        }
+
+        // Pre-fill form
+        document.getElementById("title").value = data.title || "";
+        document.getElementById("price").value = data.price || "";
+        document.getElementById("description").value = data.description || "";
+        document.getElementById("category").value = data.category || "";
+      } catch (err) {
+        msg.textContent = "❌ Error loading service: " + err.message;
+      }
+    });
+
+    async function uploadFile(file, path) {
+      const fileRef = ref(storage, path);
+      const snap = await uploadBytes(fileRef, file);
+      return await getDownloadURL(snap.ref);
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      msg.textContent = "Updating...";
+
+      const title = document.getElementById("title").value.trim();
+      const price = document.getElementById("price").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const category = document.getElementById("category").value;
+
+      const image1 = document.getElementById("image1").files[0];
+      const image2 = document.getElementById("image2").files[0];
+      const image3 = document.getElementById("image3").files[0];
+      const video = document.getElementById("video").files[0];
+
+      try {
+        let imageUrls = [];
+        for (let [i, file] of [image1, image2, image3].entries()) {
+          if (file) {
+            const url = await uploadFile(file, `services/${currentUser.uid}/edit-img${i + 1}-${Date.now()}`);
+            imageUrls.push(url);
+          }
+        }
+
+        let videoUrl = "";
+        if (video) {
+          videoUrl = await uploadFile(video, `services/${currentUser.uid}/edit-vid-${Date.now()}`);
+        }
+
+        const updateData = {
+          title,
+          price,
+          description,
+          category,
+          updatedAt: serverTimestamp()
+        };
+
+        if (imageUrls.length > 0) updateData.imageUrls = imageUrls;
+        if (videoUrl) updateData.videoUrl = videoUrl;
+
+        await updateDoc(doc(db, "services", serviceId), updateData);
+
+        msg.textContent = "✅ Service updated!";
+        setTimeout(() => {
+          window.location.href = "my-services.html";
+        }, 1500);
+      } catch (err) {
+        msg.textContent = "❌ Error: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>

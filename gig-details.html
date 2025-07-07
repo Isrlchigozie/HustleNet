@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gig Details – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="homepage-body">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <div class="profile-icon" onclick="toggleMenu()">👤</div>
+  </nav>
+
+  <!-- Dropdown -->
+  <div class="dropdown-menu" id="dropdown">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="login.html">Logout</a>
+  </div>
+
+  <!-- Gig Detail Section -->
+  <section class="gig-detail container-padding">
+    <h2 id="gig-title">📝 Loading...</h2>
+    <p><strong>Budget:</strong> ₦<span id="budget">--</span></p>
+    <p><strong>Deadline:</strong> <span id="deadline">--</span></p>
+    <p><strong>Posted on:</strong> <span id="posted-date">Loading...</span></p>
+    <p><strong>Description:</strong></p>
+    <p id="description">Loading description...</p>
+
+    <a id="book-link" href="#" class="btn-primary" style="display: none;">📩 Apply / Book</a>
+    <p id="msg" style="color: red; margin-top: 10px;"></p>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>
+
+  <!-- Firebase SDKs and Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const gigId = urlParams.get("id");
+
+    const titleEl = document.getElementById("gig-title");
+    const budgetEl = document.getElementById("budget");
+    const deadlineEl = document.getElementById("deadline");
+    const descEl = document.getElementById("description");
+    const bookLink = document.getElementById("book-link");
+    const msg = document.getElementById("msg");
+
+    if (!gigId) {
+      msg.textContent = "❌ Invalid gig ID.";
+    }
+
+    window.toggleMenu = () => {
+      document.getElementById('dropdown').classList.toggle('show');
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "login.html";
+        return;
+      }
+
+      try {
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        const userData = userSnap.data();
+        const userRole = userData.role;
+
+        const ref = doc(db, "gigs", gigId);
+        const snap = await getDoc(ref);
+
+        if (!snap.exists()) {
+          msg.textContent = "❌ Gig not found.";
+          bookLink.style.display = "none";
+          return;
+        }
+
+        const data = snap.data();
+        titleEl.textContent = "📝 " + data.title;
+        budgetEl.textContent = data.budget;
+        descEl.textContent = data.description || "No description provided.";
+        deadlineEl.textContent = data.deadline || "Not specified";
+
+        const createdAt = data.createdAt?.toDate?.();
+        const dateStr = createdAt
+          ? new Intl.DateTimeFormat("en-NG", {
+              dateStyle: "medium",
+              timeStyle: "short"
+            }).format(createdAt)
+          : "Unknown";
+        document.getElementById("posted-date").textContent = dateStr;
+
+        // Show Apply Button only for Sellers
+        if (userRole === "seller") {
+          const q = query(
+            collection(db, "gigApplications"),
+            where("gigId", "==", gigId),
+            where("sellerId", "==", user.uid)
+          );
+          const snapApps = await getDocs(q);
+
+          if (!snapApps.empty) {
+            bookLink.style.display = "none";
+            msg.textContent = "✅ You’ve already applied for this gig.";
+          } else {
+            bookLink.textContent = "📩 Apply for This Job";
+            bookLink.href = `apply-to-gig.html?gigId=${gigId}`;
+            bookLink.style.display = "inline-block";
+          }
+        } else {
+          bookLink.style.display = "none"; // hide from buyers
+        }
+      } catch (err) {
+        msg.textContent = "❌ Error: " + err.message;
+        bookLink.style.display = "none";
+      }
+    });
+  </script>
+
+</body>
+</html>

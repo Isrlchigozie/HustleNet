@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Book Service – ABSU HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="auth-body">
+
+  <div class="auth-container">
+    <h2 id="page-title">Confirm Booking</h2>
+    <p class="auth-subtext" id="subtext">You're one step away from securing this service</p>
+
+    <div id="service-summary" class="booking-summary">Loading details...</div>
+
+    <form id="booking-form" class="auth-form">
+      <input type="text" id="buyerName" placeholder="Your Name" required />
+      <input type="email" id="buyerEmail" placeholder="Your Email" required />
+      <textarea id="notes" placeholder="Any special notes (optional)"></textarea>
+
+      <button type="submit" class="btn-primary">Pay with Paystack</button>
+    </form>
+
+    <p id="msg" style="color: red; margin-top: 10px;"></p>
+
+    <p class="switch-auth">
+      Changed your mind? <a href="home.html">Go back</a>
+    </p>
+  </div>
+
+  <!-- Firebase + Paystack SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import { getFirestore, doc, getDoc, collection, addDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const type = urlParams.get("type");
+    const itemId = urlParams.get("id");
+
+    const msg = document.getElementById("msg");
+    const summary = document.getElementById("service-summary");
+    const titleEl = document.getElementById("page-title");
+    const subtextEl = document.getElementById("subtext");
+
+    if (type === "gig") {
+      titleEl.textContent = "Apply for Gig";
+      subtextEl.textContent = "You're one step away from applying for this gig";
+    }
+
+    async function loadItemAndInit() {
+      try {
+        const user = await new Promise((resolve, reject) => {
+          const unsub = onAuthStateChanged(auth, (u) => {
+            unsub();
+            if (u) resolve(u);
+            else window.location.href = "login.html";
+          });
+        });
+
+        const ref = doc(db, type === "gig" ? "gigs" : "services", itemId);
+        const snap = await getDoc(ref);
+
+        if (!snap.exists()) {
+          summary.innerHTML = `❌ ${type === "gig" ? "Gig" : "Service"} not found.`;
+          return;
+        }
+
+        const serviceData = snap.data();
+        const price = serviceData.price || 0;
+        const fee = Math.ceil(price * 0.1);
+        const total = price + fee;
+
+        summary.innerHTML = `
+          <p><strong>${type === "gig" ? "Gig" : "Service"}:</strong> ${serviceData.title}</p>
+          <p><strong>${type === "gig" ? "Posted by" : "Provider"}:</strong> ${serviceData.displayName || "—"}</p>
+          <p><strong>Price:</strong> ₦${price}</p>
+          <p><strong>Platform Fee:</strong> ₦${fee}</p>
+          <hr>
+          <p><strong>Total:</strong> ₦${total}</p>
+        `;
+
+        // Initialize Paystack handler
+        window.initPaystackHandler({ serviceData, itemId, type }, user.uid);
+      } catch (err) {
+        msg.textContent = "❌ " + err.message;
+      }
+    }
+
+    loadItemAndInit();
+
+    // Save function accessible from non-module Paystack script
+    window.saveBooking = async function(reference, serviceData, buyerId, buyerName, buyerEmail, notes, type) {
+  try {
+    await addDoc(collection(db, type === "gig" ? "gigApplications" : "bookings"), {
+      reference,
+      itemId,
+      title: serviceData.title,
+      price: serviceData.price || 0,
+      sellerId: serviceData.uid,
+      buyerId,
+      buyerName,
+      buyerEmail,
+      notes,
+      type,
+      status: "Paid",
+      createdAt: Timestamp.now() 
+    });
+
+    // ⬇️ Save notification data to localStorage
+    localStorage.setItem("lastBooking", JSON.stringify({
+      type: "payment",
+      sellerId: serviceData.uid,
+      buyerId,
+      buyerName,
+      buyerEmail,
+      buyerPhone: "", // Optional
+      serviceTitle: serviceData.title,
+      bookingId: reference,
+      createdAt: Date.now(),
+      read: false
+    }));
+
+    window.location.href = "success.html?ref=" + reference;
+  } catch (err) {
+    document.getElementById("msg").textContent = "✅ Payment succeeded but booking failed: " + err.message;
+  }
+};
+  </script>
+
+  <!-- Paystack + Handler Script -->
+  <script src="https://js.paystack.co/v1/inline.js"></script>
+  <script>
+    window.initPaystackHandler = function(data, buyerId) {
+      const form = document.getElementById("booking-form");
+      const msg = document.getElementById("msg");
+
+      form.addEventListener("submit", function(e) {
+        e.preventDefault();
+
+        const buyerName = document.getElementById("buyerName").value.trim();
+        const buyerEmail = document.getElementById("buyerEmail").value.trim();
+        const notes = document.getElementById("notes").value.trim();
+
+        const platformFee = Math.ceil((data.serviceData.price || 0) * 0.1);
+        const totalAmount = ((data.serviceData.price || 0) + platformFee) * 100;
+
+        const handler = PaystackPop.setup({
+          key: "pk_test_302f2361acc9e845587e44413af6c13943b839c3",
+          email: buyerEmail,
+          amount: totalAmount,
+          currency: "NGN",
+          metadata: {
+            buyerName,
+            buyerEmail,
+            notes,
+            title: data.serviceData.title,
+            itemId: data.itemId,
+            sellerId: data.serviceData.uid,
+            type: data.type
+          },
+          callback: function(response) {
+            window.saveBooking(response.reference, data.serviceData, buyerId, buyerName, buyerEmail, notes, data.type);
+          },
+          onClose: function() {
+            alert("Payment was cancelled.");
+          }
+        });
+
+        handler.openIframe();
+      });
+    };
+  </script>
+
+</body>
+</html>

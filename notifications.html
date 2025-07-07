@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Notifications – HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .notif-card {
+      background: #fff;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+      border-left: 4px solid #f97316;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .notif-time {
+      font-size: 12px;
+      color: gray;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body class="homepage-body">
+
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <div class="profile-icon" onclick="toggleMenu()">👤</div>
+  </nav>
+
+  <div class="dropdown-menu" id="dropdown">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="login.html">Logout</a>
+  </div>
+
+  <section class="container-padding">
+    <h2>🔔 Notifications</h2>
+    <div id="notifications"></div>
+    <p id="msg" style="margin-top: 20px; color: red;"></p>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import {
+      getFirestore, collection, query, where, orderBy, getDocs, updateDoc, doc
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const notifDiv = document.getElementById("notifications");
+    const msg = document.getElementById("msg");
+
+    window.toggleMenu = () => {
+      document.getElementById("dropdown").classList.toggle("show");
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return (window.location.href = "login.html");
+
+      try {
+        const q = query(
+          collection(db, "notifications"),
+          where("sellerId", "==", user.uid),
+          orderBy("createdAt", "desc")
+        );
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+          msg.textContent = "No notifications yet.";
+          return;
+        }
+
+        snapshot.forEach(async (docSnap) => {
+          const data = docSnap.data();
+          const createdAt = data.createdAt?.toDate
+            ? new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeStyle: "short" }).format(data.createdAt.toDate())
+            : "Unknown time";
+
+          const card = document.createElement("div");
+          card.className = "notif-card";
+          card.innerHTML = `
+            <p><strong>${data.buyerName}</strong> just paid for your service: <strong>${data.serviceTitle}</strong>.</p>
+            <p>Contact: ${data.buyerEmail || "No email"} ${data.buyerPhone ? " | " + data.buyerPhone : ""}</p>
+            <div class="notif-time">${createdAt}</div>
+          `;
+          notifDiv.appendChild(card);
+
+          // mark as read
+          await updateDoc(doc(db, "notifications", docSnap.id), { read: true });
+        });
+      } catch (err) {
+        msg.textContent = "❌ Failed to load notifications: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Notifications – HustleNet</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .notif-card {
+      background: #fff;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+      border-left: 4px solid #f97316;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .notif-time {
+      font-size: 12px;
+      color: gray;
+      margin-top: 5px;
+    }
+    .notif-link {
+      color: #6d28d9;
+      text-decoration: underline;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body class="homepage-body">
+
+  <nav class="navbar">
+    <div class="logo">HustleNet</div>
+    <div class="profile-icon" onclick="toggleMenu()">👤</div>
+  </nav>
+
+  <div class="dropdown-menu" id="dropdown">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="login.html">Logout</a>
+  </div>
+
+  <section class="container-padding">
+    <h2>🔔 Notifications</h2>
+    <div id="notifications"></div>
+    <p id="msg" style="margin-top: 20px; color: red;"></p>
+  </section>
+
+  <footer class="footer">
+    <p>© 2025 ABSU HustleNet. Powered by Li.Corp</p>
+  </footer>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+    import {
+      getFirestore, collection, query, where, orderBy, getDocs, updateDoc, doc
+    } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBscof9iCETJ2XlYnLCI-a3UKI6O0A6kdU",
+      authDomain: "absu-hustlenet.firebaseapp.com",
+      projectId: "absu-hustlenet",
+      storageBucket: "absu-hustlenet.appspot.com",
+      messagingSenderId: "198376621950",
+      appId: "1:198376621950:web:209289ec531887b858552f"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const notifDiv = document.getElementById("notifications");
+    const msg = document.getElementById("msg");
+
+    window.toggleMenu = () => {
+      document.getElementById("dropdown").classList.toggle("show");
+    };
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return (window.location.href = "login.html");
+
+      try {
+        const q = query(
+          collection(db, "notifications"),
+          where("sellerId", "==", user.uid),
+          orderBy("createdAt", "desc")
+        );
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) {
+          msg.textContent = "No notifications yet.";
+          return;
+        }
+
+        snapshot.forEach(async (docSnap) => {
+          const data = docSnap.data();
+          const createdAt = data.createdAt?.toDate
+            ? new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeStyle: "short" }).format(data.createdAt.toDate())
+            : "Unknown time";
+
+          const card = document.createElement("div");
+          card.className = "notif-card";
+
+          // 🔄 Flexible content handling
+          let content = `<p>${data.message}</p>`;
+
+          if (data.gigId) {
+            content += `<p><a class="notif-link" href="gig-details.html?id=${data.gigId}">View Gig Details</a></p>`;
+          }
+
+          content += `<div class="notif-time">${createdAt}</div>`;
+          card.innerHTML = content;
+          notifDiv.appendChild(card);
+
+          // ✅ Mark as read
+          await updateDoc(doc(db, "notifications", docSnap.id), { read: true });
+        });
+      } catch (err) {
+        msg.textContent = "❌ Failed to load notifications: " + err.message;
+      }
+    });
+  </script>
+</body>
+</html>
