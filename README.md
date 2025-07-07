@@ -35,7 +35,8 @@ This version was built entirely using **Firebase + JavaScript** for rapid protot
 | Frontend         | Backend / DB      | Hosting         |
 |------------------|-------------------|------------------|
 | HTML, CSS, JS (Vanilla or React) | Firebase Firestore | Netlify |
-| Firebase Auth    | Firebase Functions |
+|     | Firebase Functions | |
+| | Firebase Auth| |
 
 
 
