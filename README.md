@@ -74,7 +74,7 @@ Stay tuned for updates on the **more powerful and scalable version of HustleNet*
 ## 🙌 Built With
 
 - 🧠 Idea: [God to Li.Corp](#)
-- 👨‍💻 Dev: Israel Chigozie (@li)
+- 👨‍💻 Dev: Israel Chigozie (@Li)
 - 🔥 Tools: Firebase, Netlify, Vanilla JS (or React)
 
 
